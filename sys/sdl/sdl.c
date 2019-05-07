@@ -198,35 +198,35 @@ void menu()
     while (((currentselection != 1) && (currentselection != 6)) || (!pressed))
     {
         pressed = 0;
- 		SDL_FillRect( screen, NULL, 0 );
+ 		SDL_FillRect( backbuffer, NULL, 0 );
 		
-		print_string("GnuBoy", TextWhite, 0, 80, 15, screen->pixels);
+		print_string("GnuBoy " __DATE__, TextWhite, 0, 56, 15, backbuffer->pixels);
 		
-		if (currentselection == 1) print_string("Continue", TextRed, 0, 5, 35, screen->pixels);
-		else  print_string("Continue", TextWhite, 0, 5, 35, screen->pixels);
+		if (currentselection == 1) print_string("Continue", TextRed, 0, 5, 35, backbuffer->pixels);
+		else  print_string("Continue", TextWhite, 0, 5, 35, backbuffer->pixels);
 		
 		snprintf(text, sizeof(text), "Load State %d", saveslot);
 		
-		if (currentselection == 2) print_string(text, TextRed, 0, 5, 55, screen->pixels);
-		else print_string(text, TextWhite, 0, 5, 55, screen->pixels);
+		if (currentselection == 2) print_string(text, TextRed, 0, 5, 55, backbuffer->pixels);
+		else print_string(text, TextWhite, 0, 5, 55, backbuffer->pixels);
 		
 		snprintf(text, sizeof(text), "Save State %d", saveslot);
 		
-		if (currentselection == 3) print_string(text, TextRed, 0, 5, 75, screen->pixels);
-		else print_string(text, TextWhite, 0, 5, 75, screen->pixels);
+		if (currentselection == 3) print_string(text, TextRed, 0, 5, 75, backbuffer->pixels);
+		else print_string(text, TextWhite, 0, 5, 75, backbuffer->pixels);
 		
         if (currentselection == 4)
         {
 			switch(fullscreen)
 			{
 				case 0:
-					print_string("Scaling : Native", TextRed, 0, 5, 95, screen->pixels);
+					print_string("Scaling : Native", TextRed, 0, 5, 95, backbuffer->pixels);
 				break;
 				case 1:
-					print_string("Scaling : Fullscreen", TextRed, 0, 5, 95, screen->pixels);
+					print_string("Scaling : Fullscreen", TextRed, 0, 5, 95, backbuffer->pixels);
 				break;
 				case 2:
-					print_string("Scaling : Keep aspect", TextRed, 0, 5, 95, screen->pixels);
+					print_string("Scaling : Keep aspect", TextRed, 0, 5, 95, backbuffer->pixels);
 				break;
 			}
         }
@@ -235,13 +235,13 @@ void menu()
 			switch(fullscreen)
 			{
 				case 0:
-					print_string("Scaling : Native", TextWhite, 0, 5, 95, screen->pixels);
+					print_string("Scaling : Native", TextWhite, 0, 5, 95, backbuffer->pixels);
 				break;
 				case 1:
-					print_string("Scaling : Fullscreen", TextWhite, 0, 5, 95, screen->pixels);
+					print_string("Scaling : Fullscreen", TextWhite, 0, 5, 95, backbuffer->pixels);
 				break;
 				case 2:
-					print_string("Scaling : Keep aspect", TextWhite, 0, 5, 95, screen->pixels);
+					print_string("Scaling : Keep aspect", TextWhite, 0, 5, 95, backbuffer->pixels);
 				break;
 			}
         }
@@ -249,17 +249,17 @@ void menu()
 		switch(useframeskip)
 		{
 			case 0:
-				if (currentselection == 5) print_string("Frameskip : No", TextRed, 0, 5, 115, screen->pixels);
-				else print_string("Frameskip : No", TextWhite, 0, 5, 115, screen->pixels);
+				if (currentselection == 5) print_string("Frameskip : No", TextRed, 0, 5, 115, backbuffer->pixels);
+				else print_string("Frameskip : No", TextWhite, 0, 5, 115, backbuffer->pixels);
 			break;
 			case 1:
-				if (currentselection == 5) print_string("Frameskip : Yes", TextRed, 0, 5, 115, screen->pixels);
-				else print_string("Frameskip : Yes", TextWhite, 0, 5, 115, screen->pixels);
+				if (currentselection == 5) print_string("Frameskip : Yes", TextRed, 0, 5, 115, backbuffer->pixels);
+				else print_string("Frameskip : Yes", TextWhite, 0, 5, 115, backbuffer->pixels);
 			break;
 		}
 		
-		if (currentselection == 6) print_string("Quit", TextRed, 0, 5, 135, screen->pixels);
-		else print_string("Quit", TextWhite, 0, 5, 135, screen->pixels);
+		if (currentselection == 6) print_string("Quit", TextRed, 0, 5, 135, backbuffer->pixels);
+		else print_string("Quit", TextWhite, 0, 5, 135, backbuffer->pixels);
 
         while (SDL_PollEvent(&Event))
         {
@@ -354,6 +354,7 @@ void menu()
             }
         }
 
+		SDL_BlitSurface(backbuffer, NULL, screen, NULL);
 		SDL_Flip(screen);
     }
     
@@ -384,16 +385,13 @@ static int mapscancode(SDLKey sym)
 
 void vid_init(char *s, char *s2)
 {
-	int flags;
-
-	flags = SDL_HWSURFACE;
 	if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO))
 	{
 		printf("SDL: Couldn't initialize SDL: %s\n", SDL_GetError());
 		exit(1);
 	}
 
-	screen = SDL_SetVideoMode(240, 160, 16, flags);
+	screen = SDL_SetVideoMode(240, 160, 16, SDL_HWSURFACE);
 	if(!screen)
 	{
 		printf("SDL: can't set video mode: %s\n", SDL_GetError());
