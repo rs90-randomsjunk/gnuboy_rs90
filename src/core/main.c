@@ -1,14 +1,9 @@
-
-
-
-
-
+#undef _GNU_SOURCE
+#define _GNU_SOURCE
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-char *strdup();
 
 #include <stdarg.h>
 #include <signal.h>
@@ -16,7 +11,10 @@ char *strdup();
 #include "defs.h"
 #include "input.h"
 #include "rc.h"
-
+#include "sys.h"
+#include "exports.h"
+#include "emu.h"
+#include "loader.h"
 
 #include "Version"
 
@@ -197,7 +195,6 @@ extern void cleanup();
 int main(int argc, char *argv[])
 {
 	int i;
-	FILE* fp;
 	char *opt, *arg, *cmd, *s, *rom = 0, *var, *var2;
 
 	sys_sanitize(argv[0]);
@@ -232,6 +229,12 @@ int main(int argc, char *argv[])
 
 	// load skin specific to rom - <romname>.tga
 	var = malloc(strlen(rom)+5);
+	if (!var)
+	{
+		printf("Can't realloc var\n");
+		return 1;
+	}
+	
 	strcpy(var,rom);
 	s = strrchr(var, '.');
 	if (s) *s = 0;
@@ -240,6 +243,13 @@ int main(int argc, char *argv[])
 	// load default skin - gnuboy.tga
 	var2 = basefolder(rom);
 	var2 = realloc(var2,strlen(var2) + strlen("gnuboy.tga") + 1);
+	if (!var2)
+	{
+		free(var);
+		printf("Can't realloc var2\n");
+		return 1;
+	}
+	
 	sprintf(var2,"%sgnuboy.tga",var2);
 
 	s = strdup(argv[0]);
@@ -313,8 +323,19 @@ int main(int argc, char *argv[])
 	//atexit(shutdown);
 	catch_signals();
 	vid_init(var,var2);
-	free(var);
-	free(var2);
+	
+	if (var)
+	{
+		var = NULL;
+		free(var);
+	}
+	
+	if (var2)
+	{
+		var2 = NULL;
+		free(var2);
+	}
+
 	pcm_init();
 
 

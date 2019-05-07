@@ -1,4 +1,14 @@
+#undef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#undef _GNU_SOURCE
+#define _GNU_SOURCE
+#include <string.h>
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "defs.h"
 #include "regs.h"
@@ -7,14 +17,13 @@
 #include "rtc.h"
 #include "rc.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+#include "lcd.h"
+#include "inflate.h"
+#include "save.h"
+#include "sound.h"
+#include "sys.h"
 
 #define MEMCPY memmove
-
-char *strdup();
 
 static int mbc_table[256] =
 {
@@ -107,18 +116,26 @@ static void initmem(void *mem, int size)
 static byte *loadfile(FILE *f, int *len)
 {
     int size,read;
-    byte * rom;
-    fseek (f, 0, SEEK_END);
-    size = ftell(f);
-    fseek (f, 0, SEEK_SET);
-    rom = NULL;
+    byte* rom = NULL;
+    
+	fseek (f, 0, SEEK_END);
+	size = ftell(f);
+	fseek (f, 0, SEEK_SET);
+    
     rom = (byte*) malloc (size);
+    if (!rom) return 0;
+    
     *len = size;
     read = fread(rom, size, 1, f);
     if (read == 1)
-        return rom;
+    {
+		return rom;
+	}
     else
-        return 0;
+    {
+		if (rom) free(rom);
+        return NULL;
+	}
 }
 
 static byte *inf_buf;

@@ -1,15 +1,12 @@
-
-
 #include <stdlib.h>
 
 #include "defs.h"
 #include "hw.h"
 #include "cpu.h"
 #include "regs.h"
-
+#include "lcd.h"
 
 #define C (cpu.lcdc)
-
 
 /*
  * stat_trigger updates the STAT interrupt line to reflect whether any

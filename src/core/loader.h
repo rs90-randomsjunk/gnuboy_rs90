@@ -1,8 +1,5 @@
-
-
 #ifndef __LOADER_H__
 #define __LOADER_H__
-
 
 typedef struct loader_s
 {
@@ -21,7 +18,9 @@ int rom_load();
 int sram_load();
 int sram_save();
 
-
+void loader_init(char *s);
+void state_save(int n);
+void state_load(int n);
 
 #endif
 

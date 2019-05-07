@@ -1,11 +1,7 @@
-
 #ifndef __MEM_H__
 #define __MEM_H__
 
-
 #include "defs.h"
-
-
 
 #define MBC_NONE 0
 #define MBC_MBC1 1
@@ -48,17 +44,11 @@ extern struct mbc mbc;
 extern struct rom rom;
 extern struct ram ram;
 
-
-
-
-
 void mem_updatemap();
 void ioreg_write(byte r, byte b);
 void mbc_write(int a, byte b);
 void mem_write(int a, byte b);
 byte mem_read(int a);
-
-
 
 #define READB(a) ( mbc.rmap[(a)>>12] \
 ? mbc.rmap[(a)>>12][(a)] \

@@ -1,7 +1,4 @@
-
-
-
-
+#include <stdio.h>
 #include "defs.h"
 #include "regs.h"
 #include "hw.h"
@@ -10,19 +7,15 @@
 #include "fastmem.h"
 #include "cpuregs.h"
 #include "cpucore.h"
+#include "lcdc.h"
 
 #ifdef USE_ASM
 #include "asm.h"
 #endif
 
-
 struct cpu cpu;
 
-
-
-
 #define ZFLAG(n) ( (n) ? 0 : FZ )
-
 
 #define PUSH(w) ( (SP -= 2), (writew(xSP, (w))) )
 #define POP(w) ( ((w) = readw(xSP)), (SP += 2) )
@@ -828,11 +821,18 @@ next:
 			break;
 		}
 		break;
-			
+	/*case 0xDB:
+	case 0xDD:
+	case 0xE3:
+	case 0xE4:
+	case 0xEB:
+	case 0xEC:
+	case 0xED:
+	case 0xF4:
+	case 0xFC:
+	case 0xFD:*/
 	default:
-		die(
-			"invalid opcode 0x%02X at address 0x%04X, rombank = %d\n",
-			op, (PC-1) & 0xffff, mbc.rombank);
+		printf("invalid opcode 0x%02X at address 0x%04X, rombank = %d\n",op, (PC-1) & 0xffff, mbc.rombank);
 		break;
 	}
 

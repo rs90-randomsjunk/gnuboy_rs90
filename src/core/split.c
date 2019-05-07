@@ -1,5 +1,3 @@
-
-
 /*
  * splitline is a destructive argument parser, much like a very primitive
  * form of a shell parser. it supports quotes for embedded spaces and

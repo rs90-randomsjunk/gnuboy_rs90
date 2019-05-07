@@ -152,7 +152,6 @@ get_tables (const unsigned char *data, long *p,
     {
       b = decode_one (data, p, clen_size_table, CLEN_TSIZE,
 		      clen_code_table, CLEN_MAXBITS);
-      if ( b<0 ) return -1;
       if ( b<16 )
 	hlit_size_table[j] = b;
       else if ( b == 16 )
@@ -200,7 +199,6 @@ get_tables (const unsigned char *data, long *p,
     {
       b = decode_one (data, p, clen_size_table, CLEN_TSIZE,
 		      clen_code_table, CLEN_MAXBITS);
-      if ( b<0 ) return -1;
       if ( b<16 )
 	hdist_size_table[j] = b;
       else if ( b == 16 )
@@ -281,7 +279,6 @@ get_data (const unsigned char *data, long *p,
   while ( 1 ) {
     b = decode_one (data, p, hlit_size_table, HLIT_TSIZE,
 		    hlit_code_table, HLIT_MAXBITS);
-    if ( b<0 ) return -1;
     if ( b < 256 )
       /* Literal */
       {

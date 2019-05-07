@@ -1,6 +1,3 @@
-
-
-
 #include "defs.h"
 #include "regs.h"
 #include "hw.h"
@@ -8,7 +5,10 @@
 #include "mem.h"
 #include "lcd.h"
 #include "rc.h"
-
+#include "rtc.h"
+#include "sys.h"
+#include "sound.h"
+#include "cpu.h"
 
 static int framelen = 16743;
 static int framecount;
@@ -20,11 +20,6 @@ rcvar_t emu_exports[] =
 	RCV_INT("framecount", &framecount),
 	RCV_END
 };
-
-
-
-
-
 
 
 void emu_init()

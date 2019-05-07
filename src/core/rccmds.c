@@ -1,15 +1,15 @@
-
-
-
-
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "defs.h"
 #include "rc.h"
 #include "hw.h"
-
-
+#include "sys.h"
+#include "emu.h"
+#include "rckeys.h"
+#include "loader.h"
+#include "split.h"
 
 /*
  * define the command functions for the controller pad.

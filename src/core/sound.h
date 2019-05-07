@@ -1,5 +1,3 @@
-
-
 #ifndef __SOUND_H__
 #define __SOUND_H__
 
@@ -27,9 +25,18 @@ struct snd
 extern struct snd snd;
 
 
+#include "defs.h"
 
-
-
+void sound_write(byte r, byte b);
+byte sound_read(byte r);
+void sound_dirty();
+void sound_off();
+void sound_reset();
+void sound_mix();
+void s1_init();
+void s2_init();
+void s3_init();
+void s4_init();
 
 #endif
 

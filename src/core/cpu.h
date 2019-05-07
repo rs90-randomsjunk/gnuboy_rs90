@@ -1,12 +1,7 @@
-
-
 #ifndef __CPU_H__
 #define __CPU_H__
 
-
-
 #include "defs.h"
-
 
 union reg
 {
@@ -28,8 +23,13 @@ struct cpu
 
 extern struct cpu cpu;
 
-
-
+void cpu_reset();
+void div_advance(int cnt);
+void timer_advance(int cnt);
+void lcdc_advance(int cnt);
+void sound_advance(int cnt);
+void cpu_timers(int cnt);
+int cpu_emulate(int cycles);
 
 #endif
 

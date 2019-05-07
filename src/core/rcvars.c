@@ -1,27 +1,17 @@
-
-
-
-
+#undef _GNU_SOURCE
+#define _GNU_SOURCE
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-char *strdup();
+#include <math.h>
+#include <ctype.h>
 
 #include "defs.h"
 #include "rc.h"
 
-
-
-
-
-
 static rcvar_t *rcvars;
 
 static int nvars;
-
-
-
-
 
 void rc_export(rcvar_t *v)
 {

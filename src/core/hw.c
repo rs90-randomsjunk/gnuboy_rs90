@@ -1,4 +1,3 @@
-
 #include <string.h>
 
 #include "defs.h"
@@ -9,10 +8,7 @@
 #include "mem.h"
 #include "fastmem.h"
 
-
 struct hw hw;
-
-
 
 /*
  * hw_interrupt changes the virtual interrupt lines included in the

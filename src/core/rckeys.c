@@ -1,22 +1,12 @@
-
-
-
-#include <stdlib.h>
+#undef _GNU_SOURCE
+#define _GNU_SOURCE
 #include <string.h>
-
-char *strdup();
-
+#include <stdlib.h>
 #include "defs.h"
 #include "rc.h"
 #include "input.h"
 
-
-
-
 char *keybind[MAX_KEYS];
-
-
-
 
 int rc_bindkey(char *keyname, char *cmd)
 {
@@ -34,8 +24,6 @@ int rc_bindkey(char *keyname, char *cmd)
 	
 	return 0;
 }
-
-
 
 int rc_unbindkey(char *keyname)
 {

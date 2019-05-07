@@ -1,10 +1,7 @@
-
-
-
 #ifndef __DEFS_H__
 #define __DEFS_H__
 
-
+#include <stdint.h>
 
 #ifdef IS_LITTLE_ENDIAN
 #define LO 0
@@ -14,25 +11,24 @@
 #define HI 0
 #endif
 
+typedef uint8_t byte;
 
-typedef unsigned char byte;
+typedef uint8_t un8;
+typedef uint16_t un16;
+typedef uint32_t un32;
 
-typedef unsigned char un8;
-typedef unsigned short un16;
-typedef unsigned int un32;
+typedef int8_t n8;
+typedef int16_t n16;
+typedef int32_t n32;
 
-typedef signed char n8;
-typedef signed short n16;
-typedef signed int n32;
-
-typedef un16 word;
+typedef uint16_t word;
 typedef word addr;
 
 typedef enum {false, true} bool;
 
-
-
-
+/* stuff from main.c ... */
+void die(char *fmt, ...);
+void doevents();
 
 #endif
 

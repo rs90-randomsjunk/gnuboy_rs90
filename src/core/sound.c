@@ -1,4 +1,3 @@
-
 #include <string.h>
 
 #include "defs.h"
@@ -9,6 +8,7 @@
 #include "regs.h"
 #include "rc.h"
 #include "noise.h"
+#include "sys.h"
 
 #define MEMCPY memmove
 

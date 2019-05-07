@@ -4,11 +4,12 @@
  * Definitions for input device stuff - buttons, keys, etc.
  */
 
+#ifndef INPUT_H
+#define INPUT_H
 
 #define M_IGNORE 0
 #define M_RELATIVE 1
 #define M_ABSOLUTE 2
-
 
 #define K_SHIFT 0x101
 #define K_CTRL 0x102
@@ -137,4 +138,4 @@ typedef struct event_s
 int ev_postevent(event_t *ev);
 int ev_getevent(event_t *ev);
 
-
+#endif
