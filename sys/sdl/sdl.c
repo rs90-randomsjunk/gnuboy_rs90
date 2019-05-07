@@ -42,6 +42,8 @@ SDL_Surface *img_background;
 SDL_mutex *sound_mutex;
 SDL_cond *sound_cv;
 
+static uint32_t menu_triggers = 0;
+
 static bool frameskip = 0;
 static bool useframeskip = 0;
 static bool showfps = 0;
@@ -443,8 +445,7 @@ void ev_poll()
 		case SDL_KEYDOWN:
 			if (event.key.keysym.sym == SDLK_BACKSPACE || event.key.keysym.sym == SDLK_TAB)
 			{
-				startpressed = true;
-				selectpressed = true;
+				menu_triggers = 1;
 			}
 
 			if (event.key.keysym.sym == SDLK_RETURN)
@@ -481,7 +482,7 @@ void ev_poll()
 		}
 	}
 
-	if((startpressed && selectpressed))
+	if(menu_triggers == 1)
 	{
 		event_t ev;
 		ev.type = EV_RELEASE;
@@ -495,6 +496,7 @@ void ev_poll()
 		menu();
 		startpressed = false;
 		selectpressed = false;
+		menu_triggers = 0;
 		if (emuquit)
 		{
 			pcm_silence();
