@@ -6,6 +6,9 @@
 #include "mem.h"
 #include "rtc.h"
 #include "lcd.h"
+#include "sys.h"
+#include "lcdc.h"
+#include "sound.h"
 
 struct mbc mbc;
 struct rom rom;
@@ -35,10 +38,10 @@ void mem_updatemap()
 	map[0x3] = rom.bank[0];
 	if (mbc.rombank < mbc.romsize)
 	{
-		map[0x4] = rom.bank[mbc.rombank] - 0x4000;
-		map[0x5] = rom.bank[mbc.rombank] - 0x4000;
-		map[0x6] = rom.bank[mbc.rombank] - 0x4000;
-		map[0x7] = rom.bank[mbc.rombank] - 0x4000;
+		map[0x4] = (uint8_t*)rom.bank[mbc.rombank] - 0x4000;
+		map[0x5] = (uint8_t*)rom.bank[mbc.rombank] - 0x4000;
+		map[0x6] = (uint8_t*)rom.bank[mbc.rombank] - 0x4000;
+		map[0x7] = (uint8_t*)rom.bank[mbc.rombank] - 0x4000;
 	}
 	else map[0x4] = map[0x5] = map[0x6] = map[0x7] = NULL;
 	if (0 && (R_STAT & 0x03) == 0x03)
@@ -48,13 +51,13 @@ void mem_updatemap()
 	}
 	else
 	{
-		map[0x8] = lcd.vbank[R_VBK & 1] - 0x8000;
-		map[0x9] = lcd.vbank[R_VBK & 1] - 0x8000;
+		map[0x8] = (uint8_t*)lcd.vbank[R_VBK & 1] - 0x8000;
+		map[0x9] = (uint8_t*)lcd.vbank[R_VBK & 1] - 0x8000;
 	}
 	if (mbc.enableram && !(rtc.sel&8))
 	{
-		map[0xA] = ram.sbank[mbc.rambank] - 0xA000;
-		map[0xB] = ram.sbank[mbc.rambank] - 0xA000;
+		map[0xA] = (uint8_t*)ram.sbank[mbc.rambank] - 0xA000;
+		map[0xB] = (uint8_t*)ram.sbank[mbc.rambank] - 0xA000;
 	}
 	else map[0xA] = map[0xB] = NULL;
 	map[0xC] = ram.ibank[0] - 0xC000;
