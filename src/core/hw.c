@@ -50,37 +50,30 @@ void hw_dma(byte b)
 		lcd.oam.mem[i] = readb(a);
 }
 
+/* COMMENT A: NOTE this is partially superceded by COMMENT B below.
+ * Beware was pretty sure that this HDMA implementation was incorrect, as when
+ * he used it in bgb, it broke Pokemon Crystal (J). I tested it with this and
+ * it seems to work fine, so until I find any problems with it, it's staying.
+ * (Lord Nightmare)
+ */
 
 
-void hw_hdma_cmd(byte c)
-{
-	int cnt;
-	addr sa;
-	int da;
+/* COMMENT B:
+Timings for GDMA by /dalias/ by all means are accurate within few cycles, given
+whatever we feed these values in takes a time to run expressed in double-speed
+machine cycles as an argument. Whatever DMA-related issues remain, they are
+likely in how intervals are applied and not in how they are calculated.
 
-	/* Begin or cancel HDMA */
-	if ((hw.hdma|c) & 0x80)
-	{
-		hw.hdma = c;
-		R_HDMA5 = c & 0x7f;
-		return;
-	}
-	
-	/* Perform GDMA */
-	sa = ((addr)R_HDMA1 << 8) | (R_HDMA2&0xf0);
-	da = 0x8000 | ((int)(R_HDMA3&0x1f) << 8) | (R_HDMA4&0xf0);
-	cnt = ((int)c)+1;
-	/* FIXME - this should use cpu time! */
-	/*cpu_timers(102 * cnt);*/
-	cnt <<= 4;
-	while (cnt--)
-		writeb(da++, readb(sa++));
-	R_HDMA1 = sa >> 8;
-	R_HDMA2 = sa & 0xF0;
-	R_HDMA3 = 0x1F & (da >> 8);
-	R_HDMA4 = da & 0xF0;
-	R_HDMA5 = 0xFF;
-}
+Had to replace cpu_timers() in GDMA section, don't know how but it was breaking
+Shantae. Figured out the same thing happens to Pokemon Crystal and HDMA so I
+also got HDMA init interval in place. Ghostbusters got fixed somehow somewhere
+along the way.
+
+Not sure how to be about now-missing lcd update. Note that DMA transfer now
+completes immediately from LCDC perspective, which is far from accurate. Any
+way we better get other bits straight to make sure they don't interfere before
+trying to fix DMA any further.
+*/
 
 
 void hw_hdma()
@@ -94,12 +87,68 @@ void hw_hdma()
 	cnt = 16;
 	while (cnt--)
 		writeb(da++, readb(sa++));
+		
+	/* SEE COMMENT B ABOVE */
+	/* NOTE: lcdc_trans() after a call to hw_hdma() will advance lcdc for us */
+	div_advance(16 << cpu.speed);
+	timer_advance(16 << cpu.speed);
+	sound_advance(16);
+	
 	R_HDMA1 = sa >> 8;
 	R_HDMA2 = sa & 0xF0;
 	R_HDMA3 = 0x1F & (da >> 8);
 	R_HDMA4 = da & 0xF0;
 	R_HDMA5--;
 	hw.hdma--;
+}
+
+
+void hw_hdma_cmd(byte c)
+{
+	int cnt;
+	addr sa;
+	int da;
+	
+	int advance;
+
+	/* Begin or cancel HDMA */
+	if ((hw.hdma|c) & 0x80)
+	{
+		hw.hdma = c;
+		R_HDMA5 = c & 0x7f;
+		
+		/* SEE COMMENT B ABOVE */
+		advance = 460 >> cpu.speed;
+		div_advance(advance << cpu.speed);
+		timer_advance(advance << cpu.speed);
+		sound_advance(advance);
+		
+		/* FIXME: according to docs, hdma should not be started during hblank
+		(Extreme Ghostbusters game does, but it also works without this line) */
+		if ((R_STAT&0x03) == 0x00) hw_hdma(); /* SEE COMMENT A ABOVE */
+		return;
+	}
+	
+	/* Perform GDMA */
+	sa = ((addr)R_HDMA1 << 8) | (R_HDMA2&0xf0);
+	da = 0x8000 | ((int)(R_HDMA3&0x1f) << 8) | (R_HDMA4&0xf0);
+	cnt = ((int)c)+1;
+	
+	/* SEE COMMENT B ABOVE */
+	/*cpu_timers((460>>cpu.speed)+cnt*16);*/ /*dalias*/
+	advance = (460 >> cpu.speed) + cnt*16;
+	div_advance(advance << cpu.speed);
+	timer_advance(advance << cpu.speed);
+	sound_advance(advance);
+	
+	cnt <<= 4;
+	while (cnt--)
+		writeb(da++, readb(sa++));
+	R_HDMA1 = sa >> 8;
+	R_HDMA2 = sa & 0xF0;
+	R_HDMA3 = 0x1F & (da >> 8);
+	R_HDMA4 = da & 0xF0;
+	R_HDMA5 = 0xFF;
 }
 
 
@@ -169,10 +218,3 @@ void hw_reset()
 	R_HDMA5 = 0xFF;
 	R_VBK = 0xFE;
 }
-
-
-
-
-
-
-
