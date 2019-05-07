@@ -1,0 +1,11 @@
+*.txt
+*.gb
+*.gbc
+*.gcda
+*.elf
+*.o
+*.bin
+*.bmp
+*.dge
+*.opk
+*.ipk

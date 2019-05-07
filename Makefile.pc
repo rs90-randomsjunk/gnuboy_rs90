@@ -1,0 +1,39 @@
+
+prefix = 
+exec_prefix = ${prefix}
+bindir = ${exec_prefix}/bin
+
+CC = -gcc
+LD = $(CC)
+AS = $(CC)
+
+CFLAGS = -O2 -pg -D_GNU_SOURCE=1 -DIS_LITTLE_ENDIAN
+
+LDFLAGS = $(CFLAGS) 
+ASFLAGS = $(CFLAGS)
+
+TARGETS =  sdlgnuboy.elf
+
+ASM_OBJS =
+
+SYS_DEFS = -DHAVE_CONFIG_H -DIS_LITTLE_ENDIAN -DIS_LINUX -DNATIVE_AUDIO
+SYS_OBJS = sys/nix/nix.o $(ASM_OBJS)
+SYS_INCS = -I./sys/nix -Ifont -Isrc/core
+
+SDL_OBJS = sys/sdl/sdl.o sys/sdl/keymap.o sys/sdl/scaler.o sys/sdl/font_drawing.o sys/alsa/alsa.o
+SDL_LIBS =  -lSDL -lasound
+SDL_CFLAGS = -D_GNU_SOURCE=1
+
+all: $(TARGETS)
+
+include Rules
+
+$(TARGETS): $(OBJS) $(SYS_OBJS) $(SDL_OBJS)
+	$(LD) $(LDFLAGS) $(OBJS) $(SYS_OBJS) $(SDL_OBJS) -o $@ $(SDL_LIBS)
+
+
+clean:
+	rm -f *gnuboy gmon.out src/core/*.o sys/*.o sys/*/*.o asm/*/*.o
+	
+clean_gcda:
+	rm -f src/core/*.gcda sys/*.gcda sys/*/*.gcda
