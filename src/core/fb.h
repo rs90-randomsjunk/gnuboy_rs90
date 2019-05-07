@@ -1,12 +1,7 @@
-
-
 #ifndef __FB_H__
 #define __FB_H__
 
-
 #include "defs.h"
-
-
 
 struct fb
 {
@@ -24,9 +19,7 @@ struct fb
 	int dirty;
 };
 
-
 extern struct fb fb;
-
 
 #endif
 
