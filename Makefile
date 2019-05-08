@@ -7,10 +7,14 @@ CC = /opt/rs90-toolchain/bin/mipsel-linux-gcc
 LD = $(CC)
 AS = $(CC)
 
-CFLAGS = -Ofast -march=mips32 -mno-abicalls -fno-PIC -mno-abicalls -falign-functions -falign-loops -falign-labels -falign-jumps -fno-builtin -fno-common -flto
-CFLAGS += -D_GNU_SOURCE=1 -DIS_LITTLE_ENDIAN
+CFLAGS		+= -Ofast -mips32 -fdata-sections -ffunction-sections -mno-fp-exceptions -mno-check-zero-division -mframe-header-opt -fsingle-precision-constant -fno-common -march=mips32 -mtune=mips32 
+CFLAGS		+= -fno-PIC -mno-abicalls -fno-common
+CFLAGS		+= -mlong32 -mno-micromips -mno-interlink-compressed
+CFLAGS		+= -flto -funroll-loops -fsection-anchors
+CFLAGS		+= -fno-stack-protector -fomit-frame-pointer -falign-functions=1 -falign-jumps=1 -falign-loops=1
 
-LDFLAGS = -nodefaultlibs -lc -lgcc -lm -lSDL -lasound -lz -no-pie -Wl,--as-needed -Wl,--gc-sections -s -flto
+CFLAGS += -D_GNU_SOURCE=1 -DIS_LITTLE_ENDIAN
+LDFLAGS = -nodefaultlibs -lc -lgcc -lm -lSDL -lasound -lz -no-pie -Wl,--as-needed -Wl,--gc-sections -flto -s
 
 ifeq ($(PROFILE), YES)
 CFLAGS 		+= -fprofile-generate="/home/retrofw/profile"
@@ -25,7 +29,7 @@ TARGETS =  sdlgnuboy.dge
 
 ASM_OBJS =
 
-SYS_DEFS = -DHAVE_CONFIG_H -DIS_LITTLE_ENDIAN  -DIS_LINUX -DNATIVE_AUDIO
+SYS_DEFS = -DIS_LITTLE_ENDIAN  -DIS_LINUX -DNATIVE_AUDIO
 SYS_OBJS = sys/nix/nix.o $(ASM_OBJS)
 SYS_INCS = -I./sys/nix -Ifont -Isrc/core
 
