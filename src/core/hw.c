@@ -125,7 +125,8 @@ void hw_hdma_cmd(byte c)
 		
 		/* FIXME: according to docs, hdma should not be started during hblank
 		(Extreme Ghostbusters game does, but it also works without this line) */
-		if ((R_STAT&0x03) == 0x00) hw_hdma(); /* SEE COMMENT A ABOVE */
+		/* This breaks the look of some games like DKC. */
+		/*if ((R_STAT&0x03) == 0x00) hw_hdma();*/
 		return;
 	}
 	
