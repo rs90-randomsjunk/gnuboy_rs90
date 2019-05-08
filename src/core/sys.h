@@ -34,5 +34,6 @@ void kb_close();
 #include <sys/time.h>
 int sys_elapsed(struct timeval *prev);
 void sys_initpath();
+char* sys_gethome();
 
 #endif
