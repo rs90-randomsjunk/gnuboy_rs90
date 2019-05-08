@@ -105,37 +105,4 @@
 
 #define MAX_KEYS 0x200
 
-typedef struct keytable_s
-{
-	char *name;
-	int code;
-} keytable_t;
-
-extern keytable_t keytable[];
-extern char keystates[MAX_KEYS];
-extern int nkeysdown;
-
-
-int k_keycode(char *name);
-char *k_keyname(int code);
-
-
-
-typedef struct event_s
-{
-	int type;
-	int code;
-	int dx, dy;
-	int x, y;
-} event_t;
-
-#define EV_NONE 0
-#define EV_PRESS 1
-#define EV_RELEASE 2
-#define EV_REPEAT 3
-#define EV_MOUSE 4
-
-int ev_postevent(event_t *ev);
-int ev_getevent(event_t *ev);
-
 #endif

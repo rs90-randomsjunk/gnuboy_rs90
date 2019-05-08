@@ -3,11 +3,6 @@
  *
  * System interface for *nix systems.
  */
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -89,7 +84,7 @@ char *sys_gethome()
 
 void sys_initpath()
 {
-	char *buf, *home = getenv("HOME");
+	/*char *buf, *home = getenv("HOME");
 	if (!home)
 	{
 		buf = ".";
@@ -102,13 +97,9 @@ void sys_initpath()
 	rc_setvar("rcpath", 1, &buf);
 	sprintf(buf, "%s/" DOTDIR "/saves" , home);
 	rc_setvar("savedir", 1, &buf);
-	free(buf);
+	free(buf);*/
 }
 
 void sys_sanitize(char *s)
 {
 }
-
-
-
-

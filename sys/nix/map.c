@@ -1,24 +1,11 @@
-
-
-/*
- * this code is not yet used. eventually we want to support using mmap
- * to map rom and sram into memory, so we don't waste virtual memory.
- */
-
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
+/* this code is not yet used. eventually we want to support using mmap  to map rom and sram into memory, so we don't waste virtual memory.*/
 
 #include <string.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <unistd.h>
 
-
 #include "defs.h"
-
 
 #define DOTDIR ".gnuboy"
 
@@ -26,7 +13,6 @@ static char *home, *saves;
 static char *romfile, *sramfile, *saveprefix;
 
 static int mmapped_rom, mmaped_sram;
-
 
 byte *map_rom()
 {
@@ -40,15 +26,9 @@ byte *map_rom()
 	len = loader_romsize(code);
 	
 #ifdef HAVE_MMAP
-	
 	mem = mmap(0, len, PROT_READ, 
 #endif
-	
 }
-
-
-
-
 
 int map_checkdirs()
 {
@@ -73,13 +53,3 @@ int map_checkdirs()
 	}
 	return 0;
 }
-
-
-
-
-
-
-
-
-
-

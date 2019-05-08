@@ -4,7 +4,6 @@
 #include "cpu.h"
 #include "mem.h"
 #include "lcd.h"
-#include "rc.h"
 #include "rtc.h"
 #include "sys.h"
 #include "sound.h"
@@ -13,13 +12,6 @@
 static int framelen = 16743;
 static int framecount;
 extern bool emuquit;
-
-rcvar_t emu_exports[] =
-{
-	RCV_INT("framelen", &framelen),
-	RCV_INT("framecount", &framecount),
-	RCV_END
-};
 
 
 void emu_init()
@@ -42,8 +34,6 @@ void emu_reset()
 	mbc_reset();
 	sound_reset();
 }
-
-
 
 
 
@@ -81,7 +71,7 @@ void emu_run()
 			sys_sleep(delay);
 			sys_elapsed(timer);
 		}
-		doevents();
+		ev_poll();
 		if(emuquit)
             break;
 		vid_begin();
@@ -94,15 +84,3 @@ void emu_run()
 			emu_step();
 	}
 }
-
-
-
-
-
-
-
-
-
-
-
-

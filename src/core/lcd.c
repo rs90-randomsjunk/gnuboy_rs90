@@ -7,7 +7,6 @@
 #include "hw.h"
 #include "mem.h"
 #include "lcd.h"
-#include "rc.h"
 #include "fb.h"
 #ifdef USE_ASM
 #include "asm.h"
@@ -66,6 +65,7 @@ static int filter[3][4] = {
 	{  25,  60, 125,  40 }
 };
 
+/*
 rcvar_t lcd_exports[] =
 {
 	RCV_INT("scale", &scale),
@@ -84,6 +84,7 @@ rcvar_t lcd_exports[] =
 	RCV_VECTOR("blue", filter[2], 4),
 	RCV_END
 };
+*/
 
 static byte *vdest;
 
@@ -717,10 +718,6 @@ void lcd_refreshline()
 
 
 
-
-
-
-
 static void updatepalette(int i)
 {
 	int c, r, g, b, y, u, v, rr, gg;
@@ -852,19 +849,3 @@ void lcd_reset()
 	vram_dirty();
 	pal_dirty();
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

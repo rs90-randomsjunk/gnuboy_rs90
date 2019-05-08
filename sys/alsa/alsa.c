@@ -5,7 +5,6 @@ char *strdup();
 
 #include "defs.h"
 #include "pcm.h"
-#include "rc.h"
 
 struct pcm pcm;
 
@@ -16,15 +15,6 @@ static int samplerate = 44100;
 static int sound = 1;
 
 static snd_pcm_t *handle;
-
-rcvar_t pcm_exports[] =
-{
-	RCV_BOOL("sound", &sound),
-	RCV_INT("stereo", &stereo),
-	RCV_INT("samplerate", &samplerate),
-	RCV_STRING("oss_device", &dsp_device),
-	RCV_END
-};
 
 void pcm_silence()
 {

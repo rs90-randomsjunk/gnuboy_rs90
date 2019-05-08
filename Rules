@@ -2,9 +2,7 @@
 include Version
 
 OBJS = src/core/lcd.o src/core/refresh.o src/core/lcdc.o src/core/palette.o src/core/cpu.o src/core/mem.o src/core/rtc.o src/core/hw.o src/core/sound.o \
-	src/core/events.o src/core/keytable.o \
 	src/core/loader.o src/core/save.o src/core/emu.o src/core/main.o \
-	src/core/rccmds.o src/core/rckeys.o src/core/rcvars.o src/core/rcfile.o src/core/exports.o \
 	src/core/split.o src/core/path.o src/core/inflate.o
 
 INCS = -I.

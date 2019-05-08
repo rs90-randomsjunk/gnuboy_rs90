@@ -15,7 +15,6 @@
 #include "mem.h"
 #include "hw.h"
 #include "rtc.h"
-#include "rc.h"
 
 #include "lcd.h"
 #include "inflate.h"
@@ -85,13 +84,13 @@ static int ramsize_table[256] =
 };
 
 
-static char *romfile;
-static char *sramfile;
-static char *rtcfile;
-static char *saveprefix;
+static char romfile[512];
+static char sramfile[512];
+static char rtcfile[512];
+static char saveprefix[512];
 
-static char *savename;
-static char *savedir;
+static char savename[512];
+static char savedir[512];
 
 static int saveslot;
 
@@ -111,31 +110,6 @@ static void initmem(void *mem, int size)
 	}
 	else if (memfill >= 0)
 		memset(p, memfill, size);
-}
-
-static byte *loadfile(FILE *f, int *len)
-{
-    int size,read;
-    byte* rom = NULL;
-    
-	fseek (f, 0, SEEK_END);
-	size = ftell(f);
-	fseek (f, 0, SEEK_SET);
-    
-    rom = (byte*) malloc (size);
-    if (!rom) return 0;
-    
-    *len = size;
-    read = fread(rom, size, 1, f);
-    if (read == 1)
-    {
-		return rom;
-	}
-    else
-    {
-		if (rom) free(rom);
-        return NULL;
-	}
 }
 
 static byte *inf_buf;
@@ -170,12 +144,21 @@ int rom_load()
 {
 	FILE *f;
 	byte c, *data, *header;
-	int len = 0, rlen;
+	int len = 0, rlen, size, res;
 
 	f = fopen(romfile, "rb");
 	if (!f) die("cannot open rom file: %s\n", romfile);
 
-	data = loadfile(f, &len);
+	fseek (f, 0, SEEK_END);
+	len = ftell(f);
+	fseek (f, 0, SEEK_SET);
+    
+    data = malloc (len);
+    if (!data) return 0;
+
+    res = fread(data, len, sizeof(uint8_t), f);
+    if (!res) return 0;
+
 	header = data = decompress(data, &len);
 
 	MEMCPY(rom.name, header+0x0134, 16);
@@ -194,7 +177,11 @@ int rom_load()
 	if (!mbc.ramsize) die("unknown SRAM size %02X\n", header[0x0149]);
 
 	rlen = 16384 * mbc.romsize;
-	rom.bank = realloc(data, rlen);
+
+	if (rom.bank) free(rom.bank);
+	rom.bank = malloc(rlen);
+	memcpy(rom.bank, data, len);
+	
 	if (rlen > len) memset(rom.bank[0]+len, 0xff, rlen - len);
 
 	ram.sbank = malloc(8192 * mbc.ramsize);
@@ -209,7 +196,8 @@ int rom_load()
 	hw.cgb = ((c == 0x80) || (c == 0xc0)) && !forcedmg;
 	hw.gba = (hw.cgb && gbamode);
 
-	if (strcmp(romfile, "-")) fclose(f);
+	if (f) fclose(f);
+	if (data) free(data);
 
 	return 0;
 }
@@ -313,12 +301,8 @@ void rtc_load()
 void loader_unload()
 {
 	sram_save();
-	if (romfile) free(romfile);
-	if (sramfile) free(sramfile);
-	if (saveprefix) free(saveprefix);
 	if (rom.bank) free(rom.bank);
 	if (ram.sbank) free(ram.sbank);
-	romfile = sramfile = saveprefix = 0;
 	rom.bank = 0;
 	ram.sbank = 0;
 	mbc.type = mbc.romsize = mbc.ramsize = mbc.batt = 0;
@@ -349,45 +333,44 @@ void cleanup()
 	/* IDEA - if error, write emergency savestate..? */
 }
 
+static char rom_name_tmp[256];
+
+static void Return_last_occurence(char* path, uint32_t len)
+{
+	uint32_t i;
+	for (i=0;i<len;i++)
+	{
+		if (path[i] == '.')
+		{
+			break;
+		}
+	}
+	if (i == len) return;
+	strncpy(rom_name_tmp, path, i);
+}
+
 void loader_init(char *s)
 {
-	char *name, *p;
+	snprintf(savedir, sizeof(savedir), "%s/.gnuboy/saves", getenv("HOME"));
 
 	sys_checkdir(savedir, 1); /* needs to be writable */
 
-	romfile = s;
+	snprintf(romfile, sizeof(romfile), "%s", s);
+
 	rom_load();
-	vid_settitle(rom.name);
-	if (savename && *savename)
-	{
-		if (savename[0] == '-' && savename[1] == 0)
-			name = ldup(rom.name);
-		else name = strdup(savename);
-	}
-	else if (romfile && *base(romfile) && strcmp(romfile, "-"))
-	{
-		name = strdup(base(romfile));
-		p = strchr(name, '.');
-		if (p) *p = 0;
-	}
-	else name = ldup(rom.name);
+	//vid_settitle(rom.name);
+	
+	Return_last_occurence (basename(romfile), strlen(basename(romfile)) );
 
-	saveprefix = malloc(strlen(savedir) + strlen(name) + 2);
-	sprintf(saveprefix, "%s/%s", savedir, name);
-
-	sramfile = malloc(strlen(saveprefix) + 5);
-	strcpy(sramfile, saveprefix);
-	strcat(sramfile, ".sav");
-
-	rtcfile = malloc(strlen(saveprefix) + 5);
-	strcpy(rtcfile, saveprefix);
-	strcat(rtcfile, ".rtc");
-
+	snprintf(saveprefix, sizeof(saveprefix), "%s/%s", savedir, rom_name_tmp);
+	snprintf(sramfile, sizeof(sramfile), "%s.sav", saveprefix);
+	snprintf(rtcfile, sizeof(rtcfile), "%s.rtc", saveprefix);
+	
 	sram_load();
 	rtc_load();
-
 }
 
+/*
 rcvar_t loader_exports[] =
 {
 	RCV_STRING("savedir", &savedir),
@@ -401,12 +384,4 @@ rcvar_t loader_exports[] =
 	RCV_INT("memrand", &memrand),
 	RCV_END
 };
-
-
-
-
-
-
-
-
-
+*/

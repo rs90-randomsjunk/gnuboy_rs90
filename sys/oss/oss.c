@@ -1,5 +1,3 @@
-
-
 #include <stdlib.h>
 #include <string.h>
 char *strdup();
@@ -37,14 +35,6 @@ static int stereo = 1;
 static int samplerate = 44100;
 static int sound = 1;
 
-rcvar_t pcm_exports[] =
-{
-	RCV_BOOL("sound", &sound),
-	RCV_INT("stereo", &stereo),
-	RCV_INT("samplerate", &samplerate),
-	RCV_STRING("oss_device", &dsp_device),
-	RCV_END
-};
 
 void pcm_silence()
 {
@@ -125,9 +115,3 @@ int pcm_submit()
 	pcm.pos = 0;
 	return 1;
 }
-
-
-
-
-
-

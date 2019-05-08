@@ -49,8 +49,3 @@ int splitline(char **argv, int max, char *line)
 	argv[i] = 0;
 	return i;
 }
-
-
-
-
-

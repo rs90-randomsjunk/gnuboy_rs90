@@ -25,8 +25,9 @@
 
 #include "fb.h"
 #include "input.h"
-#include "rc.h"
+#include "hw.h"
 
+static char datfile[512];
 
 struct fb fb;
 
@@ -52,33 +53,9 @@ static int framecounter = 0;
 static long time1 = 0;
 static int volume = 30;
 static int saveslot = 1;
-static int use_joy = 0;
 
-static int vmode[3] = { 0, 0, 16 };
-bool startpressed = false;
-bool selectpressed = false;
 extern bool emuquit;
-char datfile[512];
 static int startvolume=50;
-
-rcvar_t vid_exports[] =
-{
-	RCV_VECTOR("vmode", &vmode, 3),
-	RCV_BOOL("yuv", &use_yuv),
-	RCV_BOOL("fullscreen", &fullscreen),
-	RCV_BOOL("altenter", &use_altenter),
-	RCV_END
-};
-
-rcvar_t joy_exports[] =
-{
-	RCV_BOOL("joy", &use_joy),
-	RCV_END
-};
-
-
-/* keymap - mappings of the form { scancode, localcode } - from sdl/keymap.c */
-extern int keymap[][2];
 
 #ifndef NATIVE_AUDIO
 #include "pcm.h"
@@ -369,23 +346,7 @@ void menu()
 	}
 }
 
-static int mapscancode(SDLKey sym)
-{
-	/* this could be faster:  */
-	/*  build keymap as int keymap[256], then ``return keymap[sym]'' */
-
-	int i;
-	for (i = 0; keymap[i][0]; i++)
-		if (keymap[i][0] == sym)
-			return keymap[i][1];
-	if (sym >= '0' && sym <= '9')
-		return sym;
-	if (sym >= 'a' && sym <= 'z')
-		return sym;
-	return 0;
-}
-
-void vid_init(char *s, char *s2)
+void vid_init()
 {
 	if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO))
 	{
@@ -428,10 +389,8 @@ void vid_init(char *s, char *s2)
 
 extern void pcm_silence();
 
-
 void ev_poll()
 {
-	event_t ev;
 	SDL_Event event;
 
 	while (SDL_PollEvent(&event))
@@ -443,36 +402,70 @@ void ev_poll()
 				fb.enabled = event.active.gain;
 			break;
 		case SDL_KEYDOWN:
-			if (event.key.keysym.sym == SDLK_BACKSPACE || event.key.keysym.sym == SDLK_TAB)
+			switch(event.key.keysym.sym)
 			{
-				menu_triggers = 1;
+				case SDLK_BACKSPACE:
+				case SDLK_TAB:
+					menu_triggers = 1;
+				break;
+				case SDLK_RETURN:
+					pad_press(PAD_START);
+				break;
+				case SDLK_ESCAPE:
+					pad_press(PAD_SELECT);
+				break;
+				case SDLK_UP:
+					pad_press(PAD_UP);
+				break;
+				case SDLK_LEFT:
+					pad_press(PAD_LEFT);
+				break;
+				case SDLK_RIGHT:
+					pad_press(PAD_RIGHT);
+				break;
+				case SDLK_DOWN:
+					pad_press(PAD_DOWN);
+				break;
+				case SDLK_LCTRL:
+					pad_press(PAD_A);
+				break;
+				case SDLK_LALT:
+					pad_press(PAD_B);
+				break;
 			}
-
-			if (event.key.keysym.sym == SDLK_RETURN)
-			{
-				startpressed = true;
-			}
-
-			if (event.key.keysym.sym == SDLK_ESCAPE)
-			{
-				selectpressed = true;
-			}
-			ev.type = EV_PRESS;
-			ev.code = mapscancode(event.key.keysym.sym);
-			ev_postevent(&ev);
 			break;
 		case SDL_KEYUP:
-			if (event.key.keysym.sym == SDLK_RETURN)
+			switch(event.key.keysym.sym)
 			{
-				startpressed = false;
+				case SDLK_BACKSPACE:
+				case SDLK_TAB:
+					menu_triggers = 1;
+				break;
+				case SDLK_RETURN:
+					pad_release(PAD_START);
+				break;
+				case SDLK_ESCAPE:
+					pad_release(PAD_SELECT);
+				break;
+				case SDLK_UP:
+					pad_release(PAD_UP);
+				break;
+				case SDLK_LEFT:
+					pad_release(PAD_LEFT);
+				break;
+				case SDLK_RIGHT:
+					pad_release(PAD_RIGHT);
+				break;
+				case SDLK_DOWN:
+					pad_release(PAD_DOWN);
+				break;
+				case SDLK_LCTRL:
+					pad_release(PAD_A);
+				break;
+				case SDLK_LALT:
+					pad_release(PAD_B);
+				break;
 			}
-			if (event.key.keysym.sym == SDLK_ESCAPE)
-			{
-				selectpressed = false;
-			}
-			ev.type = EV_RELEASE;
-			ev.code = mapscancode(event.key.keysym.sym);
-			ev_postevent(&ev);
 			break;
 		case SDL_QUIT:
 			exit(1);
@@ -484,29 +477,17 @@ void ev_poll()
 
 	if(menu_triggers == 1)
 	{
-		event_t ev;
-		ev.type = EV_RELEASE;
-		ev.code = mapscancode(SDLK_RETURN);
-		ev_postevent(&ev);
-		ev.type = EV_RELEASE;
-		ev.code = mapscancode(SDLK_ESCAPE);
-		ev_postevent(&ev);
 		//memset(pcm.buf, 0, pcm.len);
 		pcm_silence();
 		menu();
-		startpressed = false;
-		selectpressed = false;
 		menu_triggers = 0;
 		if (emuquit)
 		{
 			pcm_silence();
 		}
-		
 		SDL_FillRect(screen, NULL, 0 );
 		SDL_Flip(screen);
-
 	}
-
 }
 
 void vid_setpal(int i, int r, int g, int b)
@@ -515,16 +496,13 @@ void vid_setpal(int i, int r, int g, int b)
 
 void vid_preinit()
 {
-	static char homedir[512];
 	FILE *f;
 	int vol;
-	
-	snprintf(homedir, sizeof(homedir), "%s/.gnuboy", getenv("HOME"));
-	mkdir(homedir, 0777);
+
+	mkdir(sys_gethome(), 0777);
 	
 	startvolume = readvolume();
-	snprintf(homedir, sizeof(homedir), "%s/.gnuboy/gnuboy.cfg", getenv("HOME"));
-	snprintf(datfile, sizeof(datfile), "%s", homedir);
+	snprintf(datfile, sizeof(datfile), "%s/gnuboy.cfg", sys_gethome());
 	f = fopen(datfile,"rb");
 	if(f)
 	{
@@ -546,23 +524,19 @@ void vid_preinit()
 
 void vid_close()
 {
+	FILE *f;
 	setvolume(startvolume);
-	if(fakescreen);
-		free(fakescreen);
-		
-	if (img_background)
-		SDL_FreeSurface(img_background);
-		
-	if (backbuffer)
-		SDL_FreeSurface(backbuffer);
+	
+	if (fakescreen) free(fakescreen);
+	if (img_background) SDL_FreeSurface(img_background);
+	if (backbuffer) SDL_FreeSurface(backbuffer);
 
-	if(screen);
+	if (screen)
 	{
 		SDL_UnlockSurface(screen);
 		SDL_FreeSurface(screen);
 		SDL_Quit();
 
-		FILE *f;
 		f = fopen(datfile,"wb");
 		if(f)
 		{

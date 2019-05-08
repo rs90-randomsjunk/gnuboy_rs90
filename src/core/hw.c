@@ -178,8 +178,7 @@ void pad_refresh()
 
 
 /*
- * These simple functions just update the state of a button on the
- * pad.
+ * These simple functions just update the state of a button on the pad.
  */
 
 void pad_press(byte k)

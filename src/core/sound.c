@@ -6,7 +6,6 @@
 #include "cpu.h"
 #include "hw.h"
 #include "regs.h"
-#include "rc.h"
 #include "noise.h"
 #include "sys.h"
 
@@ -56,12 +55,6 @@ struct snd snd;
 #define S2 (snd.ch[1])
 #define S3 (snd.ch[2])
 #define S4 (snd.ch[3])
-
-rcvar_t sound_exports[] =
-{
-	RCV_END
-};
-
 
 static void s1_freq_d(int d)
 {
