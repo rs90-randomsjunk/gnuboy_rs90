@@ -101,7 +101,10 @@ void menu()
 					print_string("Scaling : Fullscreen", TextRed, 0, 5, 95, backbuffer->pixels);
 				break;
 				case 2:
-					print_string("Scaling : Keep aspect", TextRed, 0, 5, 95, backbuffer->pixels);
+					print_string("Scaling : 4:3 Upscale", TextRed, 0, 5, 95, backbuffer->pixels);
+				break;
+                case 3:
+					print_string("Scaling : New 4:3", TextRed, 0, 5, 95, backbuffer->pixels);
 				break;
 			}
         }
@@ -116,7 +119,10 @@ void menu()
 					print_string("Scaling : Fullscreen", TextWhite, 0, 5, 95, backbuffer->pixels);
 				break;
 				case 2:
-					print_string("Scaling : Keep aspect", TextWhite, 0, 5, 95, backbuffer->pixels);
+					print_string("Scaling : 4:3 Upscale", TextWhite, 0, 5, 95, backbuffer->pixels);
+				break;
+                case 3:
+					print_string("Scaling : New 4:3", TextWhite, 0, 5, 95, backbuffer->pixels);
 				break;
 			}
         }
@@ -168,7 +174,7 @@ void menu()
                             case 4:
 							fullscreen--;
 							if (fullscreen < 0)
-								fullscreen = 2;
+								fullscreen = 3;
 							break;
 							case 5:
 								useframeskip = 0;
@@ -186,7 +192,7 @@ void menu()
 							break;
                             case 4:
                                 fullscreen++;
-                                if (fullscreen > 2)
+                                if (fullscreen > 3)
                                     fullscreen = 0;
 							break;
 							case 5:
@@ -213,7 +219,7 @@ void menu()
 				break;
                 case 4 :
                     fullscreen++;
-                    if (fullscreen > 2)
+                    if (fullscreen > 3)
                         fullscreen = 0;
                     break;
                 case 2 :
@@ -250,7 +256,7 @@ void vid_init()
 		exit(1);
 	}
 
-	screen = SDL_SetVideoMode(240, 160, 16, SDL_HWSURFACE);
+	screen = SDL_SetVideoMode(240, 160, 16, SDL_SWSURFACE);
 	if(!screen)
 	{
 		printf("SDL: can't set video mode: %s\n", SDL_GetError());
@@ -466,8 +472,11 @@ void vid_begin()
 					case 1: // normal fullscreen
 						bitmap_scale(0,0,160,144,240,160, 160, 0, (uint16_t* restrict)fakescreen,(uint16_t* restrict)screen->pixels);
 						break;
-					case 2: // aspect ratio
-						bitmap_scale(0,0,160,144, 178, 160, 160, screen->w-178, (uint16_t* restrict)fakescreen,(uint16_t* restrict)screen->pixels+(screen->h-160)/2*screen->w + (screen->w-178)/2);
+                    case 2: // scale 4:3
+                        upscale_160x144_to_212x160((uint16_t* restrict)fakescreen, (uint16_t* restrict)screen->pixels);
+						break;
+                    case 3: // New scale 4:3
+                        upscale_160x144_to_212x144((uint16_t* restrict)fakescreen, (uint16_t* restrict)screen->pixels);
 						break;
 					default: // native resolution
 						bitmap_scale(0,0,160,144,160,144, 160, screen->w-160, (uint16_t* restrict)fakescreen,(uint16_t* restrict)screen->pixels+(screen->h-144)/2*screen->w + (screen->w-160)/2);
