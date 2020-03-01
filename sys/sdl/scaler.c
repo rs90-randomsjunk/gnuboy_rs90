@@ -25,7 +25,7 @@ void bitmap_scale(uint32_t startx, uint32_t starty, uint32_t viswidth, uint32_t 
     } while (--H);
 }
 
-//sub-pixel scaling
+//4:3 stretch (sub-pixel scaling)
 void upscale_160x144_to_212x144(uint16_t* restrict src, uint16_t* restrict dst){    
     uint16_t* __restrict__ buffer_mem;
     uint16_t* d = dst + 240 * 8;
@@ -148,6 +148,8 @@ void upscale_160x144_to_212x160(uint16_t* restrict src, uint16_t* restrict dst){
     }
 }
 
+
+//Full Screen
 void upscale_160x144_to_240x160(uint16_t* restrict src, uint16_t* restrict dst){    
     uint16_t* __restrict__ buffer_mem;
     uint16_t* d = dst;
@@ -180,7 +182,7 @@ void upscale_160x144_to_240x160(uint16_t* restrict src, uint16_t* restrict dst){
                 *(d +240 * 5) = c[i][5];
                 *(d +240 * 6) = c[i][6];
                 *(d +240 * 7) = c[i][7];
-                *(d +240 * 8) = c[i][8];
+                *(d +240 * 8) = RSHIFT(c[i][7]) + RSHIFT(c[i][8]);
                 *(d +240 * 9) = c[i][8];
                   d++;
             }
