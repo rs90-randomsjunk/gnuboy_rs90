@@ -14,7 +14,7 @@ CFLAGS		+= -Ofast -mips32 -fdata-sections -ffunction-sections -mno-fp-exceptions
 CFLAGS		+= -fno-PIC -mno-abicalls -fno-common
 CFLAGS		+= -mlong32 -mno-micromips -mno-interlink-compressed
 CFLAGS		+= -flto -funroll-loops -fsection-anchors
-CFLAGS		+= -fno-stack-protector -fomit-frame-pointer -falign-functions=1 -falign-jumps=1 -falign-loops=1
+FLAGS		+= -fno-stack-protector -fomit-frame-pointer -falign-functions=1 -falign-jumps=1 -falign-loops=1
 
 CFLAGS += -D_GNU_SOURCE=1 -DIS_LITTLE_ENDIAN
 LDFLAGS = -nodefaultlibs -lc -lgcc -lm -lSDL -lasound -lz -no-pie -Wl,--as-needed -Wl,--gc-sections -flto -s

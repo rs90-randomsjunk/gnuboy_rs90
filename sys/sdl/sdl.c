@@ -101,10 +101,10 @@ void menu()
 					print_string("Scaling : Fullscreen", TextRed, 0, 5, 95, backbuffer->pixels);
 				break;
 				case 2:
-					print_string("Scaling : 4:3 Upscale", TextRed, 0, 5, 95, backbuffer->pixels);
+					print_string("Scaling : 4:3(Blur)", TextRed, 0, 5, 95, backbuffer->pixels);
 				break;
                 case 3:
-					print_string("Scaling : New 4:3", TextRed, 0, 5, 95, backbuffer->pixels);
+					print_string("Scaling : 4:3(Clear)", TextRed, 0, 5, 95, backbuffer->pixels);
 				break;
 			}
         }
@@ -119,10 +119,10 @@ void menu()
 					print_string("Scaling : Fullscreen", TextWhite, 0, 5, 95, backbuffer->pixels);
 				break;
 				case 2:
-					print_string("Scaling : 4:3 Upscale", TextWhite, 0, 5, 95, backbuffer->pixels);
+					print_string("Scaling : 4:3(Blur)", TextWhite, 0, 5, 95, backbuffer->pixels);
 				break;
                 case 3:
-					print_string("Scaling : New 4:3", TextWhite, 0, 5, 95, backbuffer->pixels);
+					print_string("Scaling : 4:3(Clear)", TextWhite, 0, 5, 95, backbuffer->pixels);
 				break;
 			}
         }
@@ -470,7 +470,8 @@ void vid_begin()
 				switch(fullscreen) 
 				{
 					case 1: // normal fullscreen
-						bitmap_scale(0,0,160,144,240,160, 160, 0, (uint16_t* restrict)fakescreen,(uint16_t* restrict)screen->pixels);
+						//bitmap_scale(0,0,160,144,240,160, 160, 0, (uint16_t* restrict)fakescreen,(uint16_t* restrict)screen->pixels);
+                        upscale_160x144_to_240x160((uint16_t* restrict)fakescreen, (uint16_t* restrict)screen->pixels);
 						break;
                     case 2: // scale 4:3
                         upscale_160x144_to_212x160((uint16_t* restrict)fakescreen, (uint16_t* restrict)screen->pixels);
