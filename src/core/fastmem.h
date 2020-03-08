@@ -7,21 +7,21 @@
 #include "mem.h"
 
 
-static byte readb(int a)
+inline static byte readb(int a)
 {
 	byte *p = mbc.rmap[a>>12];
 	if (p) return p[a];
 	else return mem_read(a);
 }
 
-static void writeb(int a, byte b)
+inline static void writeb(int a, byte b)
 {
 	byte *p = mbc.wmap[a>>12];
 	if (p) p[a] = b;
 	else mem_write(a, b);
 }
 
-static int readw(int a)
+inline static int readw(int a)
 {
 	if ((a+1) & 0xfff)
 	{
@@ -41,7 +41,7 @@ static int readw(int a)
 	return mem_read(a) | (mem_read(a+1)<<8);
 }
 
-static void writew(int a, int w)
+inline static void writew(int a, int w)
 {
 	if ((a+1) & 0xfff)
 	{
@@ -70,12 +70,12 @@ static void writew(int a, int w)
 	mem_write(a+1, w>>8);
 }
 
-static byte readhi(int a)
+inline static byte readhi(int a)
 {
 	return readb(a | 0xff00);
 }
 
-static void writehi(int a, byte b)
+inline static void writehi(int a, byte b)
 {
 	writeb(a | 0xff00, b);
 }

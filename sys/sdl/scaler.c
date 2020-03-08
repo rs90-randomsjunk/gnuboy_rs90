@@ -1,5 +1,5 @@
-
 #include "scaler.h"
+
 /* alekmaul's scaler taken from mame4all */
 void bitmap_scale(uint32_t startx, uint32_t starty, uint32_t viswidth, uint32_t visheight, uint32_t newwidth, uint32_t newheight,uint32_t pitchsrc,uint32_t pitchdest, uint16_t* restrict src, uint16_t* restrict dst)
 {
@@ -25,6 +25,9 @@ void bitmap_scale(uint32_t startx, uint32_t starty, uint32_t viswidth, uint32_t 
     } while (--H);
 }
 
+#define RMASK 0b1111100000000000
+#define GMASK 0b0000011111100000
+#define BMASK 0b0000000000011111
 //4:3 stretch (sub-pixel scaling)
 void upscale_160x144_to_212x144(uint16_t* restrict src, uint16_t* restrict dst){    
     uint16_t* __restrict__ buffer_mem;
@@ -39,11 +42,11 @@ void upscale_160x144_to_212x144(uint16_t* restrict src, uint16_t* restrict dst){
         for(int w =0; w < 160/3; w++)
         {
             uint16_t r0,r1,g1,b1,b2;
-            r0 = buffer_mem[x]     & 0b1111100000000000;
-            g1 = buffer_mem[x + 1] & 0b0000011111100000;
-            b1 = buffer_mem[x + 1] & 0b0000000000011111;
-            r1 = buffer_mem[x + 1] & 0b1111100000000000;
-            b2 = buffer_mem[x + 2] & 0b0000000000011111;
+            r0 = buffer_mem[x]     & RMASK;
+            g1 = buffer_mem[x + 1] & GMASK;
+            b1 = buffer_mem[x + 1] & BMASK;
+            r1 = buffer_mem[x + 1] & RMASK;
+            b2 = buffer_mem[x + 2] & BMASK;
             
             *d++ = buffer_mem[x];
             *d++ = r0 | g1 | b1;
@@ -161,16 +164,16 @@ void upscale_160x144_to_240x160(uint16_t* restrict src, uint16_t* restrict dst){
         buffer_mem = &src[y * 160];
         for(int w =0; w < 160 / 2; w++)
         {
-            uint16_t c[3][10];
-            for(int i=0; i<10; i++){
+            uint16_t c[3][9];
+            for(int i=0; i<9; i++){
                 uint16_t r0,r1,g0,g1,b1,b2;
-                r0 = buffer_mem[x + i * 160]     & 0b1111100000000000;
-                g0 = buffer_mem[x + i * 160]     & 0b0000011111000000;
-                g1 = buffer_mem[x + i * 160 + 1] & 0b0000011111000000;
-                b1 = buffer_mem[x + i * 160 + 1] & 0b0000000000011111;
+                r0 = buffer_mem[x + i * 160]     & RMASK;
+                g0 = buffer_mem[x + i * 160]     & GMASK;
+                g1 = buffer_mem[x + i * 160 + 1] & GMASK;
+                b1 = buffer_mem[x + i * 160 + 1] & BMASK;
 
                 c[0][i] = buffer_mem[x + i * 160];
-                c[1][i] = r0 | ((g0 + g1)>>1) | b1;
+                c[1][i] = r0 | (((g0 + g1)>>1)&GMASK) | b1;
                 c[2][i] = buffer_mem[x + i * 160 + 1];
             }
             for(int i = 0; i<3 ; i++){
@@ -182,7 +185,16 @@ void upscale_160x144_to_240x160(uint16_t* restrict src, uint16_t* restrict dst){
                 *(d +240 * 5) = c[i][5];
                 *(d +240 * 6) = c[i][6];
                 *(d +240 * 7) = c[i][7];
-                *(d +240 * 8) = RSHIFT(c[i][7]) + RSHIFT(c[i][8]);
+                uint16_t r0,g0,b0,r1,g1,b1;
+                r0 = c[i][7] & RMASK;
+                g0 = c[i][7] & GMASK;
+                b0 = c[i][7] & BMASK;
+                r1 = c[i][8] & RMASK;
+                g1 = c[i][8] & GMASK;
+                b1 = c[i][8] & BMASK;
+                *(d +240 * 8) = (((r0>>1) + (r1>>1))&RMASK) |
+                                (((g0 + g1)>>1)&GMASK) |
+                                (((b0 + b1)>>1)&BMASK);
                 *(d +240 * 9) = c[i][8];
                   d++;
             }
