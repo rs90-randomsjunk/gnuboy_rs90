@@ -55,7 +55,7 @@ void pcm_init()
 	as.freq = samplerate;
 	as.format = AUDIO_S16SYS;
 	as.channels = 1 + stereo;
-	as.samples = 1024;
+	as.samples = 256;
 	as.callback = audio_callback;
 	as.userdata = 0;
 	if (SDL_OpenAudio(&as, 0) == -1)

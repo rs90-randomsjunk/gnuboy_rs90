@@ -51,9 +51,12 @@ static int framecounter = 0;
 static long time1 = 0;
 static int volume = 30;
 static int saveslot = 1;
+static int colorpalette = 0;
 
 extern bool emuquit;
 static int startvolume=50;
+
+extern int dmg_pal[4][4];
 
 extern void state_load(int n);
 extern void state_save(int n);
@@ -70,7 +73,7 @@ void menu()
     pressed = 0;
     currentselection = 1;
     
-    while (((currentselection != 1) && (currentselection != 6)) || (!pressed))
+    while (((currentselection != 1) && (currentselection != 7)) || (!pressed))
     {
         pressed = 0;
  		SDL_FillRect( backbuffer, NULL, 0 );
@@ -82,26 +85,29 @@ void menu()
 		
 		snprintf(text, sizeof(text), "Load State %d", saveslot);
 		
-		if (currentselection == 2) print_string(text, TextRed, 0, 5, 55, backbuffer->pixels);
-		else print_string(text, TextWhite, 0, 5, 55, backbuffer->pixels);
+		if (currentselection == 2) print_string(text, TextRed, 0, 5, 50, backbuffer->pixels);
+		else print_string(text, TextWhite, 0, 5, 50, backbuffer->pixels);
 		
 		snprintf(text, sizeof(text), "Save State %d", saveslot);
 		
-		if (currentselection == 3) print_string(text, TextRed, 0, 5, 75, backbuffer->pixels);
-		else print_string(text, TextWhite, 0, 5, 75, backbuffer->pixels);
+		if (currentselection == 3) print_string(text, TextRed, 0, 5, 65, backbuffer->pixels);
+		else print_string(text, TextWhite, 0, 5, 65, backbuffer->pixels);
 		
         if (currentselection == 4)
         {
 			switch(fullscreen)
 			{
 				case 0:
-					print_string("Scaling : Native", TextRed, 0, 5, 95, backbuffer->pixels);
+					print_string("Scaling   : Native", TextRed, 0, 5, 80, backbuffer->pixels);
 				break;
 				case 1:
-					print_string("Scaling : Fullscreen", TextRed, 0, 5, 95, backbuffer->pixels);
+					print_string("Scaling   : Fullscreen", TextRed, 0, 5, 80, backbuffer->pixels);
 				break;
 				case 2:
-					print_string("Scaling : Keep aspect", TextRed, 0, 5, 95, backbuffer->pixels);
+					print_string("Scaling   : 4:3(Blur)", TextRed, 0, 5, 80, backbuffer->pixels);
+				break;
+                case 3:
+					print_string("Scaling   : 4:3(Clear)", TextRed, 0, 5, 80, backbuffer->pixels);
 				break;
 			}
         }
@@ -110,13 +116,16 @@ void menu()
 			switch(fullscreen)
 			{
 				case 0:
-					print_string("Scaling : Native", TextWhite, 0, 5, 95, backbuffer->pixels);
+					print_string("Scaling   : Native", TextWhite, 0, 5, 80, backbuffer->pixels);
 				break;
 				case 1:
-					print_string("Scaling : Fullscreen", TextWhite, 0, 5, 95, backbuffer->pixels);
+					print_string("Scaling   : Fullscreen", TextWhite, 0, 5, 80, backbuffer->pixels);
 				break;
 				case 2:
-					print_string("Scaling : Keep aspect", TextWhite, 0, 5, 95, backbuffer->pixels);
+					print_string("Scaling   : 4:3(Blur)", TextWhite, 0, 5, 80, backbuffer->pixels);
+				break;
+                case 3:
+					print_string("Scaling   : 4:3(Clear)", TextWhite, 0, 5, 80, backbuffer->pixels);
 				break;
 			}
         }
@@ -124,16 +133,60 @@ void menu()
 		switch(useframeskip)
 		{
 			case 0:
-				if (currentselection == 5) print_string("Frameskip : No", TextRed, 0, 5, 115, backbuffer->pixels);
-				else print_string("Frameskip : No", TextWhite, 0, 5, 115, backbuffer->pixels);
+				if (currentselection == 5) print_string("Frameskip : No", TextRed, 0, 5, 95, backbuffer->pixels);
+				else print_string("Frameskip : No", TextWhite, 0, 5, 95, backbuffer->pixels);
 			break;
 			case 1:
-				if (currentselection == 5) print_string("Frameskip : Yes", TextRed, 0, 5, 115, backbuffer->pixels);
-				else print_string("Frameskip : Yes", TextWhite, 0, 5, 115, backbuffer->pixels);
+				if (currentselection == 5) print_string("Frameskip : Yes", TextRed, 0, 5, 95, backbuffer->pixels);
+				else print_string("Frameskip : Yes", TextWhite, 0, 5, 95, backbuffer->pixels);
 			break;
 		}
 		
-		if (currentselection == 6) print_string("Quit", TextRed, 0, 5, 135, backbuffer->pixels);
+        if (currentselection == 6)
+        {
+			switch(colorpalette)
+			{
+				case 0:
+					print_string("Mono Color: Gray", TextRed, 0, 5, 110, backbuffer->pixels);
+				break;
+				case 1:
+					print_string("Mono Color: Black", TextRed, 0, 5, 110, backbuffer->pixels);
+                break;
+                case 2:
+					print_string("Mono Color: Green", TextRed, 0, 5, 110, backbuffer->pixels);
+				break;
+				case 3:
+					print_string("Mono Color: Black & Gray", TextRed, 0, 5, 110, backbuffer->pixels);
+				break;
+                case 4:
+					print_string("Mono Color: Black & Green", TextRed, 0, 5, 110, backbuffer->pixels);
+				break;
+			}
+        }
+        else
+        {
+			switch(colorpalette)
+			{
+				case 0:
+					print_string("Mono Color: Gray", TextWhite, 0, 5, 110, backbuffer->pixels);
+				break;
+				case 1:
+					print_string("Mono Color: Black", TextWhite, 0, 5, 110, backbuffer->pixels);
+                break;
+                case 2:
+					print_string("Mono Color: Green", TextWhite, 0, 5, 110, backbuffer->pixels);
+				break;
+				case 3:
+					print_string("Mono Color: Black & Gray", TextWhite, 0, 5, 110, backbuffer->pixels);
+				break;
+                case 4:
+					print_string("Color     : Black & Green", TextWhite, 0, 5, 110, backbuffer->pixels);
+				break;
+			}
+        }
+        
+        
+		if (currentselection == 7) print_string("Quit", TextRed, 0, 5, 135, backbuffer->pixels);
 		else print_string("Quit", TextWhite, 0, 5, 135, backbuffer->pixels);
 
         while (SDL_PollEvent(&Event))
@@ -145,11 +198,11 @@ void menu()
                     case SDLK_UP:
                         currentselection--;
                         if (currentselection == 0)
-                            currentselection = 6;
+                            currentselection = 7;
                         break;
                     case SDLK_DOWN:
                         currentselection++;
-                        if (currentselection == 7)
+                        if (currentselection == 8)
                             currentselection = 1;
                         break;
                     case SDLK_LCTRL:
@@ -168,11 +221,15 @@ void menu()
                             case 4:
 							fullscreen--;
 							if (fullscreen < 0)
-								fullscreen = 2;
+								fullscreen = 0;
 							break;
 							case 5:
 								useframeskip = 0;
 							break;
+                            case 6:
+                                colorpalette --;
+                                if (colorpalette <1) colorpalette = 0;
+                            break;
                         }
                         break;
                     case SDLK_RIGHT:
@@ -186,12 +243,17 @@ void menu()
 							break;
                             case 4:
                                 fullscreen++;
-                                if (fullscreen > 2)
-                                    fullscreen = 0;
+                                if (fullscreen > 3)
+                                    fullscreen = 3;
 							break;
 							case 5:
 								useframeskip = 1;
 							break;
+                            case 6:
+                                colorpalette++;
+                                if(colorpalette > 4)
+                                    colorpalette = 4;
+                            break;
                         }
                         break;
 					default:
@@ -200,7 +262,7 @@ void menu()
             }
             else if (Event.type == SDL_QUIT)
             {
-				currentselection = 6;
+				currentselection = 7;
 			}
         }
 
@@ -213,8 +275,8 @@ void menu()
 				break;
                 case 4 :
                     fullscreen++;
-                    if (fullscreen > 2)
-                        fullscreen = 0;
+                    if (fullscreen > 3)
+                        fullscreen = 3;
                     break;
                 case 2 :
 					state_load(saveslot);
@@ -233,10 +295,50 @@ void menu()
 		SDL_Flip(screen);
     }
     
+    #define DEF_PAL1 {0xf8f8f8,0xa8a8a8,0x606060,0x000000} //clear black
+    #define DEF_PAL2 {0x98d0e0,0x68a0b0,0x60707C,0x2C3C3C} //gray(Default)
+    #define DEF_PAL3 {0xd5f3ef,0x7ab6a3,0x3b6137,0x161c04} //green
+    #define DEF_PAL4 {0x80f880,0x00e210,0x608010,0x204010} //light green
+    
+    int paltmp0[4][4] = { DEF_PAL2, DEF_PAL2, DEF_PAL2, DEF_PAL2 }; //default
+    int paltmp1[4][4] = { DEF_PAL1, DEF_PAL1, DEF_PAL1, DEF_PAL1 }; //Black
+    int paltmp2[4][4] = { DEF_PAL4, DEF_PAL4, DEF_PAL4, DEF_PAL4 }; //Green
+    int paltmp3[4][4] = { DEF_PAL2, DEF_PAL2, DEF_PAL1, DEF_PAL1 }; //Black+Gray
+    int paltmp4[4][4] = { DEF_PAL4, DEF_PAL4, DEF_PAL1, DEF_PAL1 }; // Black+Green
+
+    switch(colorpalette){
+        case 0:
+            for(int i = 0; i < 4; i++)
+                for(int j =0; j < 4; j++)
+                    dmg_pal[i][j] = paltmp0[i][j];
+        break;
+        case 1:
+            for(int i = 0; i < 4; i++)
+                for(int j =0; j < 4; j++)
+                    dmg_pal[i][j] = paltmp1[i][j];
+        break;
+        case 2:
+            for(int i = 0; i < 4; i++)
+                for(int j =0; j < 4; j++)
+                    dmg_pal[i][j] = paltmp2[i][j];
+        break;
+        case 3:
+            for(int i = 0; i < 4; i++)
+                for(int j =0; j < 4; j++)
+                    dmg_pal[i][j] = paltmp3[i][j];
+        break;
+        case 4:
+            for(int i = 0; i < 4; i++)
+                for(int j =0; j < 4; j++)
+                    dmg_pal[i][j] = paltmp4[i][j];
+        break;
+    }
+    pal_dirty();
+    
     SDL_FillRect(screen, NULL, 0);
     SDL_Flip(screen);
     
-    if (currentselection == 6)
+    if (currentselection == 7)
     {
         emuquit = true;
 	}
@@ -250,7 +352,7 @@ void vid_init()
 		exit(1);
 	}
 
-	screen = SDL_SetVideoMode(240, 160, 16, SDL_HWSURFACE);
+	screen = SDL_SetVideoMode(240, 160, 16, SDL_SWSURFACE);
 	if(!screen)
 	{
 		printf("SDL: can't set video mode: %s\n", SDL_GetError());
@@ -464,10 +566,14 @@ void vid_begin()
 				switch(fullscreen) 
 				{
 					case 1: // normal fullscreen
-						bitmap_scale(0,0,160,144,240,160, 160, 0, (uint16_t* restrict)fakescreen,(uint16_t* restrict)screen->pixels);
+						//bitmap_scale(0,0,160,144,240,160, 160, 0, (uint16_t* restrict)fakescreen,(uint16_t* restrict)screen->pixels);
+                        upscale_160x144_to_240x160((uint16_t* restrict)fakescreen, (uint16_t* restrict)screen->pixels);
 						break;
-					case 2: // aspect ratio
-						bitmap_scale(0,0,160,144, 178, 160, 160, screen->w-178, (uint16_t* restrict)fakescreen,(uint16_t* restrict)screen->pixels+(screen->h-160)/2*screen->w + (screen->w-178)/2);
+                    case 2: // scale 4:3
+                        upscale_160x144_to_212x160((uint16_t* restrict)fakescreen, (uint16_t* restrict)screen->pixels);
+						break;
+                    case 3: // New scale 4:3
+                        upscale_160x144_to_212x144((uint16_t* restrict)fakescreen, (uint16_t* restrict)screen->pixels);
 						break;
 					default: // native resolution
 						bitmap_scale(0,0,160,144,160,144, 160, screen->w-160, (uint16_t* restrict)fakescreen,(uint16_t* restrict)screen->pixels+(screen->h-144)/2*screen->w + (screen->w-160)/2);

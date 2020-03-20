@@ -55,8 +55,7 @@ static int sprsort = 1;
 static int sprdebug;
 
 #define DEF_PAL { 0x98d0e0, 0x68a0b0, 0x60707C, 0x2C3C3C }
-
-static int dmg_pal[4][4] = { DEF_PAL, DEF_PAL, DEF_PAL, DEF_PAL };
+int dmg_pal[4][4] = { DEF_PAL, DEF_PAL, DEF_PAL, DEF_PAL };
 
 static int usefilter, filterdmg;
 static int filter[3][4] = {
@@ -139,6 +138,11 @@ void updatepatpix()
 #endif /* ASM_UPDATEPATPIX */
 
 
+static const short wraptable[64] =
+{
+	0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,-32
+};
 
 void tilebuf()
 {
@@ -146,12 +150,8 @@ void tilebuf()
 	int base;
 	byte *tilemap, *attrmap;
 	int *tilebuf;
-	int *wrap;
-	static int wraptable[64] =
-	{
-		0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,
-		0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,-32
-	};
+	short *wrap;
+
 
 	base = ((R_LCDC&0x08)?0x1C00:0x1800) + (T<<5) + S;
 	tilemap = lcd.vbank[0] + base;
@@ -289,12 +289,12 @@ void wnd_scan()
 		*(dest++) = *(src++);
 }
 
-static void blendcpy(byte *dest, byte *src, byte b, int cnt)
+inline static void blendcpy(byte *dest, byte *src, byte b, int cnt)
 {
 	while (cnt--) *(dest++) = *(src++) | b;
 }
 
-static int priused(void *attr)
+inline static int priused(void *attr)
 {
 	un32 *a = attr;
 	return (int)((a[0]|a[1]|a[2]|a[3]|a[4]|a[5]|a[6]|a[7])&0x80808080);
@@ -407,7 +407,7 @@ void wnd_scan_color()
 	blendcpy(dest, src, *(tile++), cnt);
 }
 
-static void recolor(byte *buf, byte fill, int cnt)
+inline static void recolor(byte *buf, byte fill, int cnt)
 {
 	while (cnt--) *(buf++) |= fill;
 }
@@ -561,17 +561,9 @@ void spr_scan()
 
 
 
-void lcd_begin()
+inline void lcd_begin()
 {
-	if (fb.indexed)
-	{
-		if (rgb332) pal_set332();
-		else pal_expire();
-	}
-	while (scale * 160 > fb.w || scale * 144 > fb.h) scale--;
-	vdest = fb.ptr + ((fb.w*fb.pelsize)>>1)
-		- (80*fb.pelsize) * scale
-		+ ((fb.h>>1) - 72*scale) * fb.pitch;
+	vdest = fb.ptr;
 	WY = R_WY;
 }
 
@@ -718,7 +710,7 @@ void lcd_refreshline()
 
 
 
-static void updatepalette(int i)
+inline static void updatepalette(int i)
 {
 	int c, r, g, b, y, u, v, rr, gg;
 
@@ -785,7 +777,7 @@ static void updatepalette(int i)
 	}
 }
 
-void pal_write(int i, byte b)
+inline void pal_write(int i, byte b)
 {
 	if (lcd.pal[i] == b) return;
 	lcd.pal[i] = b;
@@ -814,7 +806,7 @@ void pal_write_dmg(int i, int mapnum, byte d)
 	}
 }
 
-void vram_write(int a, byte b)
+inline void vram_write(int a, byte b)
 {
 	lcd.vbank[R_VBK&1][a] = b;
 	if (a >= 0x1800) return;

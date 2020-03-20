@@ -11,7 +11,7 @@
 
 #define MEMCPY memmove
 
-const static byte dmgwave[16] =
+static const byte dmgwave[16] =
 {
 	0xac, 0xdd, 0xda, 0x48,
 	0x36, 0x02, 0xcf, 0x16,
@@ -19,7 +19,7 @@ const static byte dmgwave[16] =
 	0xac, 0xdd, 0xda, 0x48
 };
 
-const static byte cgbwave[16] =
+static const byte cgbwave[16] =
 {
 	0x00, 0xff, 0x00, 0xff,
 	0x00, 0xff, 0x00, 0xff,
@@ -27,7 +27,7 @@ const static byte cgbwave[16] =
 	0x00, 0xff, 0x00, 0xff,
 };
 
-const static byte sqwave[4][8] =
+static const byte sqwave[4][8] =
 {
 	{  0, 0,-1, 0, 0, 0, 0, 0 },
 	{  0,-1,-1, 0, 0, 0, 0, 0 },
@@ -35,7 +35,7 @@ const static byte sqwave[4][8] =
 	{ -1, 0, 0,-1,-1,-1,-1,-1 }
 };
 
-const static int freqtab[8] =
+static const int freqtab[8] =
 {
 	(1<<14)*2,
 	(1<<14),
@@ -56,32 +56,32 @@ struct snd snd;
 #define S3 (snd.ch[2])
 #define S4 (snd.ch[3])
 
-static void s1_freq_d(int d)
+inline static void s1_freq_d(int d)
 {
 	if (RATE > (d<<4)) S1.freq = 0;
 	else S1.freq = (RATE << 17)/d;
 }
 
-static void s1_freq()
+inline static void s1_freq()
 {
 	s1_freq_d(2048 - (((R_NR14&7)<<8) + R_NR13));
 }
 
-static void s2_freq()
+inline static void s2_freq()
 {
 	int d = 2048 - (((R_NR24&7)<<8) + R_NR23);
 	if (RATE > (d<<4)) S2.freq = 0;
 	else S2.freq = (RATE << 17)/d;
 }
 
-static void s3_freq()
+inline static void s3_freq()
 {
 	int d = 2048 - (((R_NR34&7)<<8) + R_NR33);
 	if (RATE > (d<<3)) S3.freq = 0;
 	else S3.freq = (RATE << 21)/d;
 }
 
-static void s4_freq()
+inline static void s4_freq()
 {
 	S4.freq = (freqtab[R_NR43&7] >> (R_NR43 >> 4)) * RATE;
 	if (S4.freq >> 18) S4.freq = 1<<18;

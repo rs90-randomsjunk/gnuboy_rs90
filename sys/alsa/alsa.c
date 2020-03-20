@@ -103,7 +103,7 @@ void pcm_init()
 	}
 
 	/* Set period size to settings.aica.BufferSize frames. */
-	frames = 1024;
+	frames = 512;//1024;
 	rc = snd_pcm_hw_params_set_period_size_near(handle, params, &frames, &dir);
 	if (rc < 0)
 	{

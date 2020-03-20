@@ -16,6 +16,9 @@
 struct cpu cpu;
 
 #define ZFLAG(n) ( (n) ? 0 : FZ )
+#define HFLAG(n) ( (n) ? 0 : FH )
+#define CFLAG(n) ( (n) ? 0 : FC )
+
 
 #define PUSH(w) ( (SP -= 2), (writew(xSP, (w))) )
 #define POP(w) ( ((w) = readw(xSP)), (SP += 2) )
@@ -304,14 +307,14 @@ void timer_advance(int cnt)
 	Will call lcdc_trans() if CPU emulation catched up or
 	went ahead of LCDC, so that lcd never falls	behind
 */
-void lcdc_advance(int cnt)
+inline void lcdc_advance(int cnt)
 {
 	cpu.lcdc -= cnt;
 	if (cpu.lcdc <= 0) lcdc_trans();
 }
 
 /* cnt - time to emulate, expressed in 2MHz units */
-void sound_advance(int cnt)
+inline void sound_advance(int cnt)
 {
 	cpu.snd += cnt;
 }
@@ -618,7 +621,25 @@ next:
 			
 
 	case 0xF8: /* LD HL,SP+imm */
+#if 0
 		b = FETCH; LDHLSP(b); break;
+#else
+		{
+			// https://gammpei.github.io/blog/posts/2018-03-04/how-to-write-a-game-boy-emulator-part-8-blarggs-cpu-test-roms-1-3-4-5-7-8-9-10-11.html
+			signed char v = (signed char) FETCH;
+			int temp = (int)(SP) + (int)v;
+
+			byte half_carry = ((SP & 0xff) ^ v ^ temp) & 0x10;
+
+			F &= ~(FZ | FN | FH | FC);
+
+			if (half_carry) F |= FH;
+			if ((SP & 0xff) + (byte)v > 0xff) F |= FC;
+
+			HL = temp & 0xffff;
+		}
+		break;
+#endif
 	case 0xF9: /* LD SP,HL */
 		SP = HL; break;
 	case 0xFA: /* LD A,(imm) */
@@ -713,7 +734,38 @@ next:
 		RRA(A); break;
 
 	case 0x27: /* DAA */
-		DAA; break;
+#if 0
+		DAA
+#else
+		{
+			//http://forums.nesdev.com/viewtopic.php?t=9088
+
+			int a = A;
+			if (!(F & FN))
+			{
+				if ((F & FH) || ((a & 0x0f) > 9)) a += 0x06;
+
+				if ((F & FC) || (a > 0x9f)) a += 0x60;
+			}
+			else
+			{
+				if (F & FH)	a = (a - 6) & 0xff;
+
+				if (F & FC) a -= 0x60;
+			}
+
+			F &= ~(FH | FZ);
+
+			if (a & 0x100) F |= FC;
+
+			a &= 0xff;
+
+			if (!a) F |= FZ;
+
+			A = (byte)a;
+		}
+#endif
+		break;
 	case 0x2F: /* CPL */
 		CPL(A); break;
 
@@ -801,12 +853,30 @@ next:
 	case 0xE5: /* PUSH HL */
 		PUSH(HL); break;
 	case 0xF1: /* POP AF */
-		POP(AF); break;
+		POP(AF); AF &= 0xfff0; break;
 	case 0xF5: /* PUSH AF */
 		PUSH(AF); break;
 
 	case 0xE8: /* ADD SP,imm */
+#if 0
 		b = FETCH; ADDSP(b); break;
+#else
+		{
+			// https://gammpei.github.io/blog/posts/2018-03-04/how-to-write-a-game-boy-emulator-part-8-blarggs-cpu-test-roms-1-3-4-5-7-8-9-10-11.html
+			signed char v = (signed char) FETCH;
+			int temp = (int)(SP) + (int)v;
+
+			byte half_carry = ((SP & 0xff) ^ v ^ temp) & 0x10;
+
+			F &= ~(FZ | FN | FH | FC);
+
+			if (half_carry) F |= FH;
+			if ((SP & 0xff) + (byte)v > 0xff) F |= FC;
+
+			SP = temp & 0xffff;
+		}
+		break;
+#endif
 
 	case 0xF3: /* DI */
 		DI; break;
