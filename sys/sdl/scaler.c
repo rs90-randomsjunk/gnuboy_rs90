@@ -28,6 +28,7 @@ void bitmap_scale(uint32_t startx, uint32_t starty, uint32_t viswidth, uint32_t 
 #define RMASK 0b1111100000000000
 #define GMASK 0b0000011111100000
 #define BMASK 0b0000000000011111
+#define RSHIFT(X) (((X) & 0xF7DE) >>1) 
 //4:3 stretch (sub-pixel scaling)
 void upscale_160x144_to_212x144(uint16_t* restrict src, uint16_t* restrict dst){    
     uint16_t* __restrict__ buffer_mem;
@@ -41,16 +42,19 @@ void upscale_160x144_to_212x144(uint16_t* restrict src, uint16_t* restrict dst){
         buffer_mem = &src[y * 160];
         for(int w =0; w < 160/3; w++)
         {
-            uint16_t r0,r1,g1,b1,b2;
-            r0 = buffer_mem[x]     & RMASK;
+            uint16_t r0,r1,g1,b1,r2,g2,b2;
+            r0 = buffer_mem[x] & RMASK;
             g1 = buffer_mem[x + 1] & GMASK;
             b1 = buffer_mem[x + 1] & BMASK;
             r1 = buffer_mem[x + 1] & RMASK;
+            r2 = buffer_mem[x + 2] & RMASK;
+            g2 = buffer_mem[x + 2] & GMASK;
             b2 = buffer_mem[x + 2] & BMASK;
             
             *d++ = buffer_mem[x];
-            *d++ = r0 | g1 | b1;
-            *d++ = r1 | g1 | b2;
+            *d++ = (((r0 + r1) >> 1) & RMASK) | g1 | b1;
+            *d++ = r1 | (((g1 + g2) >>1 ) & GMASK) | 
+                (((b2 + b1) >> 1 ) & BMASK);
             *d++ = buffer_mem[x + 2];
             x += ix;
         }
