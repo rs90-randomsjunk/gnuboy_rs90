@@ -29,6 +29,12 @@
 #include "hw.h"
 #include "sys.h"
 
+//for RS90 Vsync
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <linux/fb.h>
+int fbdev = -1;
+
 static char datfile[512];
 
 struct fb fb;
@@ -107,7 +113,7 @@ void menu()
 					print_string("Scaling   : 4:3(Blur)", TextRed, 0, 5, 80, backbuffer->pixels);
 				break;
                 case 3:
-					print_string("Scaling   : 4:3(Clear)", TextRed, 0, 5, 80, backbuffer->pixels);
+					print_string("Scaling   : 4:3(SubPixel)", TextRed, 0, 5, 80, backbuffer->pixels);
 				break;
 			}
         }
@@ -125,7 +131,7 @@ void menu()
 					print_string("Scaling   : 4:3(Blur)", TextWhite, 0, 5, 80, backbuffer->pixels);
 				break;
                 case 3:
-					print_string("Scaling   : 4:3(Clear)", TextWhite, 0, 5, 80, backbuffer->pixels);
+					print_string("Scaling   : 4:3(SubPixel)", TextWhite, 0, 5, 80, backbuffer->pixels);
 				break;
 			}
         }
@@ -180,7 +186,7 @@ void menu()
 					print_string("Mono Color: Black & Gray", TextWhite, 0, 5, 110, backbuffer->pixels);
 				break;
                 case 4:
-					print_string("Color     : Black & Green", TextWhite, 0, 5, 110, backbuffer->pixels);
+					print_string("Mono Color : Black & Green", TextWhite, 0, 5, 110, backbuffer->pixels);
 				break;
 			}
         }
@@ -359,6 +365,12 @@ void vid_init()
 		exit(1);
 	}
 
+    //for RS-90 Vsync
+    fbdev = open( "/dev/fb0", O_RDONLY /* O_RDWR */ );
+    if ( fbdev < 0 ) {
+        printf( "EGLport ERROR: Couldn't open /dev/fb0 for Pandora Vsync\n" );
+    }
+    
 	SDL_ShowCursor(0);
 	
 	backbuffer = SDL_CreateRGBSurface(SDL_SWSURFACE, screen->w, screen->h, 16, 0, 0, 0, 0);
@@ -529,6 +541,11 @@ void vid_close()
 	if (img_background) SDL_FreeSurface(img_background);
 	if (backbuffer) SDL_FreeSurface(backbuffer);
 
+    if (fbdev) {
+        close(fbdev);
+        fbdev = -1;
+    }
+    
 	if (screen)
 	{
 		SDL_UnlockSurface(screen);
@@ -581,6 +598,10 @@ void vid_begin()
 				}
 				SDL_UnlockSurface(screen);
 			}
+            //for RS-90 Vsync
+            int arg = 0;
+            ioctl( fbdev, FBIO_WAITFORVSYNC, &arg );
+            
 			SDL_Flip(screen);
 		}
 		frameskip = !frameskip;
