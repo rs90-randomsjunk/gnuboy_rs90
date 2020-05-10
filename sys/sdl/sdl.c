@@ -86,114 +86,60 @@ void menu()
 		
 		print_string("GnuBoy " __DATE__, TextWhite, 0, 56, 15, backbuffer->pixels);
 		
-		if (currentselection == 1) print_string("Continue", TextRed, 0, 5, 35, backbuffer->pixels);
-		else  print_string("Continue", TextWhite, 0, 5, 35, backbuffer->pixels);
+        print_string("Continue", (currentselection == 1 ? TextRed : TextWhite) , 0, 5, 35, backbuffer->pixels);
 		
 		snprintf(text, sizeof(text), "Load State %d", saveslot);
-		
-		if (currentselection == 2) print_string(text, TextRed, 0, 5, 50, backbuffer->pixels);
-		else print_string(text, TextWhite, 0, 5, 50, backbuffer->pixels);
+		print_string(text,  (currentselection == 2 ? TextRed : TextWhite), 0, 5, 50, backbuffer->pixels);
 		
 		snprintf(text, sizeof(text), "Save State %d", saveslot);
+		print_string(text,  (currentselection == 3 ? TextRed : TextWhite), 0, 5, 65, backbuffer->pixels);
 		
-		if (currentselection == 3) print_string(text, TextRed, 0, 5, 65, backbuffer->pixels);
-		else print_string(text, TextWhite, 0, 5, 65, backbuffer->pixels);
-		
-        if (currentselection == 4)
+        switch(fullscreen)
         {
-			switch(fullscreen)
-			{
-				case 0:
-					print_string("Scaling   : Native", TextRed, 0, 5, 80, backbuffer->pixels);
-				break;
-				case 1:
-					print_string("Scaling   : Fullscreen", TextRed, 0, 5, 80, backbuffer->pixels);
-				break;
-				case 2:
-					print_string("Scaling   : 4:3(Blur)", TextRed, 0, 5, 80, backbuffer->pixels);
-				break;
-                case 3:
-					print_string("Scaling   : 4:3(SubPixel)", TextRed, 0, 5, 80, backbuffer->pixels);
-				break;
-			}
-        }
-        else
-        {
-			switch(fullscreen)
-			{
-				case 0:
-					print_string("Scaling   : Native", TextWhite, 0, 5, 80, backbuffer->pixels);
-				break;
-				case 1:
-					print_string("Scaling   : Fullscreen", TextWhite, 0, 5, 80, backbuffer->pixels);
-				break;
-				case 2:
-					print_string("Scaling   : 4:3(Blur)", TextWhite, 0, 5, 80, backbuffer->pixels);
-				break;
-                case 3:
-					print_string("Scaling   : 4:3(SubPixel)", TextWhite, 0, 5, 80, backbuffer->pixels);
-				break;
-			}
+            case 0:
+                print_string("Scaling   : Native",  (currentselection == 4 ? TextRed : TextWhite), 0, 5, 80, backbuffer->pixels);
+                break;
+            case 1:
+                print_string("Scaling   : 3:2 (Full)", (currentselection == 4 ? TextRed : TextWhite), 0, 5, 80, backbuffer->pixels);
+                break;
+            case 2:
+                print_string("Scaling   : 4:3", (currentselection == 4 ? TextRed : TextWhite), 0, 5, 80, backbuffer->pixels);
+                break;
+            case 3:
+                print_string("Scaling   : 3:2 (Alt)", (currentselection == 4 ? TextRed : TextWhite), 0, 5, 80, backbuffer->pixels);
+                break;
         }
 
 		switch(useframeskip)
 		{
 			case 0:
-				if (currentselection == 5) print_string("Frameskip : No", TextRed, 0, 5, 95, backbuffer->pixels);
-				else print_string("Frameskip : No", TextWhite, 0, 5, 95, backbuffer->pixels);
-			break;
+				print_string("Frameskip : No", (currentselection == 5 ? TextRed : TextWhite), 0, 5, 95, backbuffer->pixels);
+                break;
 			case 1:
-				if (currentselection == 5) print_string("Frameskip : Yes", TextRed, 0, 5, 95, backbuffer->pixels);
-				else print_string("Frameskip : Yes", TextWhite, 0, 5, 95, backbuffer->pixels);
-			break;
+				print_string("Frameskip : Yes(NotRecommend)", (currentselection == 5 ? TextRed : TextWhite), 0, 5, 95, backbuffer->pixels);
+                break;
 		}
 		
-        if (currentselection == 6)
+        switch(colorpalette)
         {
-			switch(colorpalette)
-			{
-				case 0:
-					print_string("Mono Color: Gray", TextRed, 0, 5, 110, backbuffer->pixels);
-				break;
-				case 1:
-					print_string("Mono Color: Black", TextRed, 0, 5, 110, backbuffer->pixels);
+            case 0:
+                print_string("Mono Color: Gray", (currentselection == 6 ? TextRed : TextWhite), 0, 5, 110, backbuffer->pixels);
                 break;
-                case 2:
-					print_string("Mono Color: Green", TextRed, 0, 5, 110, backbuffer->pixels);
-				break;
-				case 3:
-					print_string("Mono Color: Black & Gray", TextRed, 0, 5, 110, backbuffer->pixels);
-				break;
-                case 4:
-					print_string("Mono Color: Black & Green", TextRed, 0, 5, 110, backbuffer->pixels);
-				break;
-			}
-        }
-        else
-        {
-			switch(colorpalette)
-			{
-				case 0:
-					print_string("Mono Color: Gray", TextWhite, 0, 5, 110, backbuffer->pixels);
-				break;
-				case 1:
-					print_string("Mono Color: Black", TextWhite, 0, 5, 110, backbuffer->pixels);
+            case 1:
+                print_string("Mono Color: Black", (currentselection == 6 ? TextRed : TextWhite), 0, 5, 110, backbuffer->pixels);
                 break;
-                case 2:
-					print_string("Mono Color: Green", TextWhite, 0, 5, 110, backbuffer->pixels);
-				break;
-				case 3:
-					print_string("Mono Color: Black & Gray", TextWhite, 0, 5, 110, backbuffer->pixels);
-				break;
-                case 4:
-					print_string("Mono Color : Black & Green", TextWhite, 0, 5, 110, backbuffer->pixels);
-				break;
-			}
-        }
+            case 2:
+                print_string("Mono Color: Green", (currentselection == 6 ? TextRed : TextWhite), 0, 5, 110, backbuffer->pixels);
+                break;
+            case 3:
+                print_string("Mono Color: Black & Gray", (currentselection == 6 ? TextRed : TextWhite), 0, 5, 110, backbuffer->pixels);
+                break;
+            case 4:
+                print_string("Mono Color: Black & Green", (currentselection == 6 ? TextRed : TextWhite), 0, 5, 110, backbuffer->pixels);
+                break;
+        }        
         
-        
-		if (currentselection == 7) print_string("Quit", TextRed, 0, 5, 135, backbuffer->pixels);
-		else print_string("Quit", TextWhite, 0, 5, 135, backbuffer->pixels);
+		print_string("Quit", (currentselection == 7 ? TextRed : TextWhite), 0, 5, 135, backbuffer->pixels);
 
         while (SDL_PollEvent(&Event))
         {
@@ -278,7 +224,7 @@ void menu()
             {
 				case 5:
 					useframeskip = !useframeskip;
-				break;
+                    break;
                 case 4 :
                     fullscreen++;
                     if (fullscreen > 3)
@@ -291,9 +237,9 @@ void menu()
                 case 3 :
 					state_save(saveslot);
 					currentselection = 1;
-				break;
+                    break;
 				default:
-				break;
+                    break;
             }
         }
 
@@ -366,9 +312,9 @@ void vid_init()
 	}
 
     //for RS-90 Vsync
-    fbdev = open( "/dev/fb0", O_RDONLY /* O_RDWR */ );
+    fbdev = open( "/dev/fb0", O_RDONLY);
     if ( fbdev < 0 ) {
-        printf( "EGLport ERROR: Couldn't open /dev/fb0 for Pandora Vsync\n" );
+        printf( "ERROR: Couldn't open /dev/fb0 for Vsync\n" );
     }
     
 	SDL_ShowCursor(0);
@@ -521,6 +467,7 @@ void vid_preinit()
 		fread(&saveslot,sizeof(int),1,f);
 		fread(&useframeskip,sizeof(bool),1,f);
 		fread(&showfps,sizeof(bool),1,f);
+        fread(&colorpalette,sizeof(int),1,f);
 		fclose(f);
 	}
 	else
@@ -560,6 +507,7 @@ void vid_close()
 			fwrite(&saveslot,sizeof(int),1,f);
 			fwrite(&useframeskip,sizeof(bool),1,f);
 			fwrite(&showfps,sizeof(bool),1,f);
+            fwrite(&colorpalette,sizeof(int),1,f);
 			fclose(f);
 		}
 	}
@@ -582,14 +530,13 @@ void vid_begin()
 			{
 				switch(fullscreen) 
 				{
-					case 1: // normal fullscreen
-						//bitmap_scale(0,0,160,144,240,160, 160, 0, (uint16_t* restrict)fakescreen,(uint16_t* restrict)screen->pixels);
+                    case 1: // 3:2(Full)
                         upscale_160x144_to_240x160((uint16_t* restrict)fakescreen, (uint16_t* restrict)screen->pixels);
 						break;
                     case 2: // scale 4:3
                         upscale_160x144_to_212x160((uint16_t* restrict)fakescreen, (uint16_t* restrict)screen->pixels);
 						break;
-                    case 3: // New scale 4:3
+                    case 3: // 3:2(Alt)
                         upscale_160x144_to_212x144((uint16_t* restrict)fakescreen, (uint16_t* restrict)screen->pixels);
 						break;
 					default: // native resolution
@@ -598,6 +545,7 @@ void vid_begin()
 				}
 				SDL_UnlockSurface(screen);
 			}
+            
             //for RS-90 Vsync
             int arg = 0;
             ioctl( fbdev, FBIO_WAITFORVSYNC, &arg );
