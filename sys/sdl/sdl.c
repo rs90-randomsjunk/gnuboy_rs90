@@ -424,6 +424,10 @@ void ev_poll()
 			}
 			break;
 		case SDL_QUIT:
+            cleanup();
+            loader_unload();
+            shutdown();
+            sync();
 			exit(1);
 			break;
 		default:

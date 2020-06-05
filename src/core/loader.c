@@ -233,6 +233,7 @@ int sram_save()
 	fwrite(ram.sbank, 8192, mbc.ramsize, f);
 	
 	fclose(f);
+    sync();
 
 	return 0;
 }
@@ -251,6 +252,7 @@ void state_save(int n)
 		savestate(f);
 		
 		fclose(f);
+        sync();
 
 	}
 }
@@ -286,6 +288,7 @@ void rtc_save()
 	rtc_save_internal(f);
 	
 	fclose(f);
+    sync();
 }
 
 void rtc_load()
