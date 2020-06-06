@@ -9,7 +9,7 @@
 #include "noise.h"
 #include "sys.h"
 
-#define MEMCPY memmove
+#define MEMCPY memcpy
 
 static const byte dmgwave[16] =
 {
