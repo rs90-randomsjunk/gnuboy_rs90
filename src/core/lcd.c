@@ -40,7 +40,7 @@ struct scan scan;
 #define WT (scan.wt)
 #define WV (scan.wv)
 
-#define MEMCPY memmove
+#define MEMCPY memcpy
 
 byte patpix[4096][8][8];
 byte patdirty[1024];
@@ -428,7 +428,7 @@ void spr_count()
 			continue;
 		if (L + 8 >= o->y && !(R_LCDC & 0x04))
 			continue;
-		if (++NS == 10) break;
+		if (++NS == 16) break;
 	}
 }
 
@@ -436,7 +436,7 @@ void spr_enum()
 {
 	int i, j;
 	struct obj *o;
-	struct vissprite ts[10];
+	struct vissprite ts[16];
 	int v, pat;
 	int l, x;
 
@@ -476,7 +476,7 @@ void spr_enum()
 			if (o->flags & 0x40) pat ^= 1;
 		}
 		VS[NS].buf = patpix[pat][v];
-		if (++NS == 10) break;
+		if (++NS == 16) break;
 	}
 	if (!sprsort || hw.cgb) return;
 	/* not quite optimal but it finally works! */

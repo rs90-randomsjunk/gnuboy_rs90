@@ -233,12 +233,13 @@ int sram_save()
 	fwrite(ram.sbank, 8192, mbc.ramsize, f);
 	
 	fclose(f);
+    sync();
 
 	return 0;
 }
 
 
-void state_save(int n)
+int state_save(int n)
 {
 	FILE *f;
 	char name[512];
@@ -249,14 +250,17 @@ void state_save(int n)
 	if ((f = fopen(name, "wb")))
 	{
 		savestate(f);
-		
 		fclose(f);
-
+        sync();
 	}
+    else
+        return 1; // failed to save
+    
+    return 0;
 }
 
 
-void state_load(int n)
+int state_load(int n)
 {
 	FILE *f;
 	char *name;
@@ -275,7 +279,12 @@ void state_load(int n)
 		sound_dirty();
 		mem_updatemap();
 	}
+    else{
+        return 1; // failed to load
+    }
+    
 	free(name);
+    return 0;
 }
 
 void rtc_save()
@@ -286,6 +295,7 @@ void rtc_save()
 	rtc_save_internal(f);
 	
 	fclose(f);
+    sync();
 }
 
 void rtc_load()

@@ -29,6 +29,12 @@
 #include "hw.h"
 #include "sys.h"
 
+//for RS90 Vsync
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <linux/fb.h>
+int fbdev = -1;
+
 static char datfile[512];
 
 struct fb fb;
@@ -53,13 +59,16 @@ static int volume = 30;
 static int saveslot = 1;
 static int colorpalette = 0;
 
+static char osd_text[100] = "Welcome to GNUBOY!";
+static int osd_timer = 120;
+
 extern bool emuquit;
 static int startvolume=50;
 
 extern int dmg_pal[4][4];
 
-extern void state_load(int n);
-extern void state_save(int n);
+extern int state_load(int n);
+extern int state_save(int n);
 
 void menu()
 {
@@ -73,121 +82,48 @@ void menu()
     pressed = 0;
     currentselection = 1;
     
+    int colorpalette_old = colorpalette;
+    int fullscreen_old = fullscreen;
+    
     while (((currentselection != 1) && (currentselection != 7)) || (!pressed))
     {
         pressed = 0;
  		SDL_FillRect( backbuffer, NULL, 0 );
 		
-		print_string("GnuBoy " __DATE__, TextWhite, 0, 56, 15, backbuffer->pixels);
+		print_string("GnuBoy " __DATE__, TextWhite, 0, 48, 15, backbuffer->pixels);
 		
-		if (currentselection == 1) print_string("Continue", TextRed, 0, 5, 35, backbuffer->pixels);
-		else  print_string("Continue", TextWhite, 0, 5, 35, backbuffer->pixels);
+        print_string("Continue", (currentselection == 1 ? TextRed : TextWhite) , 0, 5, 35, backbuffer->pixels);
 		
-		snprintf(text, sizeof(text), "Load State %d", saveslot);
+		snprintf(text, sizeof(text), "Load State: %d", saveslot);
+		print_string(text,  (currentselection == 2 ? TextRed : TextWhite), 0, 5, 50, backbuffer->pixels);
 		
-		if (currentselection == 2) print_string(text, TextRed, 0, 5, 50, backbuffer->pixels);
-		else print_string(text, TextWhite, 0, 5, 50, backbuffer->pixels);
+		snprintf(text, sizeof(text), "Save State: %d", saveslot);
+		print_string(text,  (currentselection == 3 ? TextRed : TextWhite), 0, 5, 65, backbuffer->pixels);
 		
-		snprintf(text, sizeof(text), "Save State %d", saveslot);
+        char scaling_mode[4][32] = {
+            "Scaling   : Native",
+            "Scaling   : 3:2 (Full)", 
+            "Scaling   : 4:3", 
+            "Scaling   : 3:2 (Alt)"
+        };
+        print_string(scaling_mode[fullscreen],  (currentselection == 4 ? TextRed : TextWhite), 0, 5, 80, backbuffer->pixels);
+ 
+        char frameskip_mode[2][32] = {
+            "Frameskip : No",
+            "Frameskip : Yes(NotRecommend)"
+        };
+        print_string(frameskip_mode[useframeskip], (currentselection == 5 ? TextRed : TextWhite), 0, 5, 95, backbuffer->pixels);
 		
-		if (currentselection == 3) print_string(text, TextRed, 0, 5, 65, backbuffer->pixels);
-		else print_string(text, TextWhite, 0, 5, 65, backbuffer->pixels);
-		
-        if (currentselection == 4)
-        {
-			switch(fullscreen)
-			{
-				case 0:
-					print_string("Scaling   : Native", TextRed, 0, 5, 80, backbuffer->pixels);
-				break;
-				case 1:
-					print_string("Scaling   : Fullscreen", TextRed, 0, 5, 80, backbuffer->pixels);
-				break;
-				case 2:
-					print_string("Scaling   : 4:3(Blur)", TextRed, 0, 5, 80, backbuffer->pixels);
-				break;
-                case 3:
-					print_string("Scaling   : 4:3(Clear)", TextRed, 0, 5, 80, backbuffer->pixels);
-				break;
-			}
-        }
-        else
-        {
-			switch(fullscreen)
-			{
-				case 0:
-					print_string("Scaling   : Native", TextWhite, 0, 5, 80, backbuffer->pixels);
-				break;
-				case 1:
-					print_string("Scaling   : Fullscreen", TextWhite, 0, 5, 80, backbuffer->pixels);
-				break;
-				case 2:
-					print_string("Scaling   : 4:3(Blur)", TextWhite, 0, 5, 80, backbuffer->pixels);
-				break;
-                case 3:
-					print_string("Scaling   : 4:3(Clear)", TextWhite, 0, 5, 80, backbuffer->pixels);
-				break;
-			}
-        }
-
-		switch(useframeskip)
-		{
-			case 0:
-				if (currentselection == 5) print_string("Frameskip : No", TextRed, 0, 5, 95, backbuffer->pixels);
-				else print_string("Frameskip : No", TextWhite, 0, 5, 95, backbuffer->pixels);
-			break;
-			case 1:
-				if (currentselection == 5) print_string("Frameskip : Yes", TextRed, 0, 5, 95, backbuffer->pixels);
-				else print_string("Frameskip : Yes", TextWhite, 0, 5, 95, backbuffer->pixels);
-			break;
-		}
-		
-        if (currentselection == 6)
-        {
-			switch(colorpalette)
-			{
-				case 0:
-					print_string("Mono Color: Gray", TextRed, 0, 5, 110, backbuffer->pixels);
-				break;
-				case 1:
-					print_string("Mono Color: Black", TextRed, 0, 5, 110, backbuffer->pixels);
-                break;
-                case 2:
-					print_string("Mono Color: Green", TextRed, 0, 5, 110, backbuffer->pixels);
-				break;
-				case 3:
-					print_string("Mono Color: Black & Gray", TextRed, 0, 5, 110, backbuffer->pixels);
-				break;
-                case 4:
-					print_string("Mono Color: Black & Green", TextRed, 0, 5, 110, backbuffer->pixels);
-				break;
-			}
-        }
-        else
-        {
-			switch(colorpalette)
-			{
-				case 0:
-					print_string("Mono Color: Gray", TextWhite, 0, 5, 110, backbuffer->pixels);
-				break;
-				case 1:
-					print_string("Mono Color: Black", TextWhite, 0, 5, 110, backbuffer->pixels);
-                break;
-                case 2:
-					print_string("Mono Color: Green", TextWhite, 0, 5, 110, backbuffer->pixels);
-				break;
-				case 3:
-					print_string("Mono Color: Black & Gray", TextWhite, 0, 5, 110, backbuffer->pixels);
-				break;
-                case 4:
-					print_string("Color     : Black & Green", TextWhite, 0, 5, 110, backbuffer->pixels);
-				break;
-			}
-        }
+        char colorpalette_mode[5][32] = {
+            "Mono Color: Gray",
+            "Mono Color: Black",
+            "Mono Color: Green",
+            "Mono Color: Black & Gray",
+            "Mono Color: Black & Green"
+        };
+        print_string(colorpalette_mode[colorpalette], (currentselection == 6 ? TextRed : TextWhite), 0, 5, 110, backbuffer->pixels);
         
-        
-		if (currentselection == 7) print_string("Quit", TextRed, 0, 5, 135, backbuffer->pixels);
-		else print_string("Quit", TextWhite, 0, 5, 135, backbuffer->pixels);
+		print_string("Quit", (currentselection == 7 ? TextRed : TextWhite), 0, 5, 135, backbuffer->pixels);
 
         while (SDL_PollEvent(&Event))
         {
@@ -206,8 +142,11 @@ void menu()
                             currentselection = 1;
                         break;
                     case SDLK_LCTRL:
-                    case SDLK_LALT:
-                    case SDLK_RETURN:
+                    //case SDLK_RETURN:
+                        pressed = 1;
+                        break;
+                    case SDLK_LALT:  //return to game
+                        currentselection = 1;
                         pressed = 1;
                         break;
                     case SDLK_LEFT:
@@ -215,20 +154,16 @@ void menu()
                         {
                             case 2:
                             case 3:
-                                saveslot--;
-                                if (saveslot < 1) saveslot = 0;
+                                if (saveslot > 1) saveslot--;
 							break;
                             case 4:
-							fullscreen--;
-							if (fullscreen < 0)
-								fullscreen = 0;
+                                if (fullscreen > 0) fullscreen--;
 							break;
 							case 5:
 								useframeskip = 0;
 							break;
                             case 6:
-                                colorpalette --;
-                                if (colorpalette <1) colorpalette = 0;
+                                if (colorpalette > 0) colorpalette --;
                             break;
                         }
                         break;
@@ -237,22 +172,16 @@ void menu()
                         {
                             case 2:
                             case 3:
-                                saveslot++;
-								if (saveslot > 9)
-									saveslot = 9;
+                                if (saveslot < 9) saveslot++;
 							break;
                             case 4:
-                                fullscreen++;
-                                if (fullscreen > 3)
-                                    fullscreen = 3;
+                                if (fullscreen < 3) fullscreen++;
 							break;
 							case 5:
 								useframeskip = 1;
 							break;
                             case 6:
-                                colorpalette++;
-                                if(colorpalette > 4)
-                                    colorpalette = 4;
+                                if (colorpalette < 4) colorpalette++;
                             break;
                         }
                         break;
@@ -272,22 +201,30 @@ void menu()
             {
 				case 5:
 					useframeskip = !useframeskip;
-				break;
+                    break;
                 case 4 :
                     fullscreen++;
                     if (fullscreen > 3)
                         fullscreen = 3;
                     break;
                 case 2 :
-					state_load(saveslot);
+                    osd_timer = 120;
+                    if(state_load(saveslot) == 0)
+                        sprintf(&osd_text, "Load slot %d", saveslot);
+                    else
+                        sprintf(&osd_text, "Failed Load slot %d!", saveslot);
 					currentselection = 1;
                     break;
                 case 3 :
-					state_save(saveslot);
+                    osd_timer = 120;
+					if(state_save(saveslot) == 0)
+                        sprintf(&osd_text, "Save slot %d", saveslot);
+                    else
+                        sprintf(&osd_text, "Failed Save slot %d!", saveslot);
 					currentselection = 1;
-				break;
+                    break;
 				default:
-				break;
+                    break;
             }
         }
 
@@ -352,13 +289,19 @@ void vid_init()
 		exit(1);
 	}
 
-	screen = SDL_SetVideoMode(240, 160, 16, SDL_SWSURFACE);
+	screen = SDL_SetVideoMode(240, 160, 16, SDL_HWSURFACE);
 	if(!screen)
 	{
 		printf("SDL: can't set video mode: %s\n", SDL_GetError());
 		exit(1);
 	}
 
+    //for RS-90 Vsync
+    fbdev = open( "/dev/fb0", O_RDONLY);
+    if ( fbdev < 0 ) {
+        printf( "ERROR: Couldn't open /dev/fb0 for Vsync\n" );
+    }
+    
 	SDL_ShowCursor(0);
 	
 	backbuffer = SDL_CreateRGBSurface(SDL_SWSURFACE, screen->w, screen->h, 16, 0, 0, 0, 0);
@@ -466,6 +409,7 @@ void ev_poll()
 			}
 			break;
 		case SDL_QUIT:
+            sync();
 			exit(1);
 			break;
 		default:
@@ -486,6 +430,8 @@ void ev_poll()
 		SDL_FillRect(screen, NULL, 0 );
 		SDL_Flip(screen);
 	}
+    
+
 }
 
 void vid_setpal(int i, int r, int g, int b)
@@ -509,6 +455,7 @@ void vid_preinit()
 		fread(&saveslot,sizeof(int),1,f);
 		fread(&useframeskip,sizeof(bool),1,f);
 		fread(&showfps,sizeof(bool),1,f);
+        fread(&colorpalette,sizeof(int),1,f);
 		fclose(f);
 	}
 	else
@@ -529,6 +476,11 @@ void vid_close()
 	if (img_background) SDL_FreeSurface(img_background);
 	if (backbuffer) SDL_FreeSurface(backbuffer);
 
+    if (fbdev) {
+        close(fbdev);
+        fbdev = -1;
+    }
+    
 	if (screen)
 	{
 		SDL_UnlockSurface(screen);
@@ -543,7 +495,9 @@ void vid_close()
 			fwrite(&saveslot,sizeof(int),1,f);
 			fwrite(&useframeskip,sizeof(bool),1,f);
 			fwrite(&showfps,sizeof(bool),1,f);
+            fwrite(&colorpalette,sizeof(int),1,f);
 			fclose(f);
+            sync();
 		}
 	}
 	fb.enabled = 0;
@@ -565,22 +519,39 @@ void vid_begin()
 			{
 				switch(fullscreen) 
 				{
-					case 1: // normal fullscreen
-						//bitmap_scale(0,0,160,144,240,160, 160, 0, (uint16_t* restrict)fakescreen,(uint16_t* restrict)screen->pixels);
+                    case 1: // 3:2(Full)
                         upscale_160x144_to_240x160((uint16_t* restrict)fakescreen, (uint16_t* restrict)screen->pixels);
 						break;
                     case 2: // scale 4:3
                         upscale_160x144_to_212x160((uint16_t* restrict)fakescreen, (uint16_t* restrict)screen->pixels);
 						break;
-                    case 3: // New scale 4:3
+                    case 3: // 3:2(Alt)
                         upscale_160x144_to_212x144((uint16_t* restrict)fakescreen, (uint16_t* restrict)screen->pixels);
 						break;
 					default: // native resolution
 						bitmap_scale(0,0,160,144,160,144, 160, screen->w-160, (uint16_t* restrict)fakescreen,(uint16_t* restrict)screen->pixels+(screen->h-144)/2*screen->w + (screen->w-160)/2);
 						break;
 				}
+                
+                // Show OSD Messages
+                if(osd_timer > 0){
+                    int pos = 0;
+                    if(osd_timer < 16)
+                        pos = 8 - (osd_timer >> 1);
+                    else if(osd_timer > 104)
+                        pos = 8 - ((120 - osd_timer)>>1);
+                    print_string(osd_text, 0, 0, 5, 150 + pos, (uint16_t* restrict)screen->pixels);
+                    print_string(osd_text, TextWhite, 0, 5, 151 + pos, (uint16_t* restrict)screen->pixels);
+                    osd_timer--;
+                }
+
 				SDL_UnlockSurface(screen);
 			}
+            
+            //for RS-90 Vsync
+            int arg = 0;
+            ioctl( fbdev, FBIO_WAITFORVSYNC, &arg );
+            
 			SDL_Flip(screen);
 		}
 		frameskip = !frameskip;

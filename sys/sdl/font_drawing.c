@@ -86,9 +86,11 @@ static void drawChar(uint16_t* restrict buffer, int32_t *x, int32_t *y, int32_t 
 		charSprite = ch * 8 + n2DLib_font;
 		// Draw charSprite as monochrome 8*8 image using given color
 		for(i = 0; i < 8; i++)
-		{
+		{            
+            if (*y + i >= 160) continue;
 			for(j = 7; j >= 0; j--)
-			{
+			{    
+                setPixel(buffer, *x + (7 - j), *y + i, olc);
 				if((charSprite[i] >> j) & 1)
 				{
 					setPixel(buffer, *x + (7 - j), *y + i, fc);
@@ -105,7 +107,7 @@ static void drawChar(uint16_t* restrict buffer, int32_t *x, int32_t *y, int32_t 
 
 static void drawString(uint16_t* restrict buffer, int32_t *x, int32_t *y, int32_t _x, const char *str, uint16_t fc, uint16_t olc)
 {
-	unsigned long i, max = strlen(str) + 1;
+	unsigned long i, max = strlen(str);
 	for(i = 0; i < max; i++)
 		drawChar(buffer, x, y, _x, str[i], fc, olc);
 }
