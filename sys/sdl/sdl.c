@@ -29,12 +29,6 @@
 #include "hw.h"
 #include "sys.h"
 
-//for RS90 Vsync
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <linux/fb.h>
-int fbdev = -1;
-
 static char datfile[512];
 
 struct fb fb;
@@ -154,7 +148,7 @@ void menu()
                         {
                             case 2:
                             case 3:
-                                if (saveslot > 1) saveslot--;
+                                if (saveslot > 0) saveslot--;
 							break;
                             case 4:
                                 if (fullscreen > 0) fullscreen--;
@@ -248,27 +242,27 @@ void menu()
             for(int i = 0; i < 4; i++)
                 for(int j =0; j < 4; j++)
                     dmg_pal[i][j] = paltmp0[i][j];
-        break;
+            break;
         case 1:
             for(int i = 0; i < 4; i++)
                 for(int j =0; j < 4; j++)
                     dmg_pal[i][j] = paltmp1[i][j];
-        break;
+            break;
         case 2:
             for(int i = 0; i < 4; i++)
                 for(int j =0; j < 4; j++)
                     dmg_pal[i][j] = paltmp2[i][j];
-        break;
+            break;
         case 3:
             for(int i = 0; i < 4; i++)
                 for(int j =0; j < 4; j++)
                     dmg_pal[i][j] = paltmp3[i][j];
-        break;
+            break;
         case 4:
             for(int i = 0; i < 4; i++)
                 for(int j =0; j < 4; j++)
                     dmg_pal[i][j] = paltmp4[i][j];
-        break;
+            break;
     }
     pal_dirty();
     
@@ -276,9 +270,7 @@ void menu()
     SDL_Flip(screen);
     
     if (currentselection == 7)
-    {
         emuquit = true;
-	}
 }
 
 void vid_init()
@@ -289,22 +281,16 @@ void vid_init()
 		exit(1);
 	}
 
-	screen = SDL_SetVideoMode(240, 160, 16, SDL_HWSURFACE);
+	screen = SDL_SetVideoMode(240, 160, 16, SDL_HWSURFACE | SDL_DOUBLEBUF);
 	if(!screen)
 	{
 		printf("SDL: can't set video mode: %s\n", SDL_GetError());
 		exit(1);
 	}
 
-    //for RS-90 Vsync
-    fbdev = open( "/dev/fb0", O_RDONLY);
-    if ( fbdev < 0 ) {
-        printf( "ERROR: Couldn't open /dev/fb0 for Vsync\n" );
-    }
-    
 	SDL_ShowCursor(0);
 	
-	backbuffer = SDL_CreateRGBSurface(SDL_SWSURFACE, screen->w, screen->h, 16, 0, 0, 0, 0);
+	backbuffer = SDL_CreateRGBSurface(0, screen->w, screen->h, 16, 0, 0, 0, 0);
 
 	fakescreen = calloc(160*144, 2);
 
@@ -462,7 +448,7 @@ void vid_preinit()
 	{
 		fullscreen = 2;
 		volume = 75;
-		saveslot = 1;
+		saveslot = 0;
 		useframeskip = false;
 	}
 }
@@ -475,11 +461,6 @@ void vid_close()
 	if (fakescreen) free(fakescreen);
 	if (img_background) SDL_FreeSurface(img_background);
 	if (backbuffer) SDL_FreeSurface(backbuffer);
-
-    if (fbdev) {
-        close(fbdev);
-        fbdev = -1;
-    }
     
 	if (screen)
 	{
@@ -547,10 +528,6 @@ void vid_begin()
 
 				SDL_UnlockSurface(screen);
 			}
-            
-            //for RS-90 Vsync
-            int arg = 0;
-            ioctl( fbdev, FBIO_WAITFORVSYNC, &arg );
             
 			SDL_Flip(screen);
 		}

@@ -177,11 +177,7 @@ int rom_load()
 	if (!mbc.ramsize) die("unknown SRAM size %02X\n", header[0x0149]);
 
 	rlen = 16384 * mbc.romsize;
-
-	if (rom.bank) free(rom.bank);
-	rom.bank = malloc(rlen);
-	memcpy(rom.bank, data, len);
-	
+	rom.bank = realloc(data, rlen);
 	if (rlen > len) memset(rom.bank[0]+len, 0xff, rlen - len);
 
 	ram.sbank = malloc(8192 * mbc.ramsize);
@@ -195,9 +191,8 @@ int rom_load()
 	c = header[0x0143];
 	hw.cgb = ((c == 0x80) || (c == 0xc0)) && !forcedmg;
 	hw.gba = (hw.cgb && gbamode);
-
-	if (f) fclose(f);
-	if (data) free(data);
+    
+    if (strcmp(romfile, "-")) fclose(f);
 
 	return 0;
 }
