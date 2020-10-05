@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #ifndef WIN32
 #include <linux/soundcard.h>
@@ -28,6 +29,8 @@
 #include "input.h"
 #include "hw.h"
 #include "sys.h"
+#include "lcd.h"
+#include "sound.h"
 
 static char datfile[512];
 
@@ -52,9 +55,6 @@ static long time1 = 0;
 static int volume = 30;
 static int saveslot = 1;
 static int colorpalette = 0;
-
-static char osd_text[100] = "Welcome to GNUBOY!";
-static int osd_timer = 120;
 
 extern bool emuquit;
 static int startvolume=50;
@@ -202,19 +202,9 @@ void menu()
                         fullscreen = 3;
                     break;
                 case 2 :
-                    osd_timer = 120;
-                    if(state_load(saveslot) == 0)
-                        sprintf(&osd_text, "Load slot %d", saveslot);
-                    else
-                        sprintf(&osd_text, "Failed Load slot %d!", saveslot);
 					currentselection = 1;
                     break;
                 case 3 :
-                    osd_timer = 120;
-					if(state_save(saveslot) == 0)
-                        sprintf(&osd_text, "Save slot %d", saveslot);
-                    else
-                        sprintf(&osd_text, "Failed Save slot %d!", saveslot);
 					currentselection = 1;
                     break;
 				default:
@@ -268,6 +258,10 @@ void menu()
     
     SDL_FillRect(screen, NULL, 0);
     SDL_Flip(screen);
+    SDL_FillRect(screen, NULL, 0);
+    SDL_Flip(screen);
+    SDL_FillRect(screen, NULL, 0);
+    SDL_Flip(screen);
     
     if (currentselection == 7)
         emuquit = true;
@@ -281,7 +275,7 @@ void vid_init()
 		exit(1);
 	}
 
-	screen = SDL_SetVideoMode(240, 160, 16, SDL_HWSURFACE | SDL_DOUBLEBUF);
+	screen = SDL_SetVideoMode(240, 160, 16, SDL_HWSURFACE | SDL_TRIPLEBUF);
 	if(!screen)
 	{
 		printf("SDL: can't set video mode: %s\n", SDL_GetError());
@@ -395,7 +389,6 @@ void ev_poll()
 			}
 			break;
 		case SDL_QUIT:
-            sync();
 			exit(1);
 			break;
 		default:
@@ -513,18 +506,6 @@ void vid_begin()
 						bitmap_scale(0,0,160,144,160,144, 160, screen->w-160, (uint16_t* restrict)fakescreen,(uint16_t* restrict)screen->pixels+(screen->h-144)/2*screen->w + (screen->w-160)/2);
 						break;
 				}
-                
-                // Show OSD Messages
-                if(osd_timer > 0){
-                    int pos = 0;
-                    if(osd_timer < 16)
-                        pos = 8 - (osd_timer >> 1);
-                    else if(osd_timer > 104)
-                        pos = 8 - ((120 - osd_timer)>>1);
-                    print_string(osd_text, 0, 0, 5, 150 + pos, (uint16_t* restrict)screen->pixels);
-                    print_string(osd_text, TextWhite, 0, 5, 151 + pos, (uint16_t* restrict)screen->pixels);
-                    osd_timer--;
-                }
 
 				SDL_UnlockSurface(screen);
 			}

@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -61,14 +62,27 @@ void sys_checkdir(char *path, int wr)
 	if (access(path, X_OK | (wr ? W_OK : 0)))
 	{
 		if (!access(path, F_OK))
-			die("cannot access %s: %s\n", path, strerror(errno));
+		{
+			printf("cannot access %s: %s\n", path, strerror(errno));
+			exit(EXIT_FAILURE);
+			return;
+		}
 		p = strrchr(path, '/');
-		if (!p) die("descended to root trying to create dirs\n");
+		if (!p) 
+		{
+			printf("descended to root trying to create dirs\n");
+			exit(EXIT_FAILURE);
+			return;
+		}
 		*p = 0;
 		sys_checkdir(path, wr);
 		*p = '/';
 		if (mkdir(path, 0777))
-			die("cannot create %s: %s\n", path, strerror(errno));
+		{
+			printf("cannot create %s: %s\n", path, strerror(errno));
+			exit(EXIT_FAILURE);
+			return;
+		}
 	}
 }
 

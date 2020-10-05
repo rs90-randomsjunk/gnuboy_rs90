@@ -36,6 +36,8 @@ void hw_hdma_cmd(byte c);
 void hw_reset();
 void pad_refresh();
 void pad_set(byte k, int st);
+void pad_press(byte k);
+void pad_release(byte k);
 
 #endif
 
