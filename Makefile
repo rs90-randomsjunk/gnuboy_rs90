@@ -3,21 +3,27 @@ prefix =
 exec_prefix = ${prefix}
 bindir = ${exec_prefix}/bin
 
-#PROFILE=YES
-PROFILE=APPLY
+PROFILE=0
+#PROFILE=APPLY
 
 CC = /opt/rs90-toolchain/bin/mipsel-linux-gcc
 LD = $(CC)
 AS = $(CC)
+DEBUG = 0
 
+ifeq ($(DEBUG), YES)
+CFLAGS		+= -O0 -g3
+CFLAGS += -D_GNU_SOURCE=1 -DIS_LITTLE_ENDIAN -DNOSCALE
+LDFLAGS = -lc -lgcc -lm -lSDL -lasound -lz
+else
 CFLAGS		+= -Ofast -mips32 -fdata-sections -ffunction-sections -mno-fp-exceptions -mno-check-zero-division -mframe-header-opt -fsingle-precision-constant -fno-common -march=mips32 -mtune=mips32 
-CFLAGS		+= -fno-common
-CFLAGS		+= -mlong32 -mno-micromips -mno-interlink-compressed
-CFLAGS		+= -flto -funroll-loops -fsection-anchors
-CFLAGS		+= -fno-stack-protector -fomit-frame-pointer -falign-functions=1 -falign-jumps=1 -falign-loops=1
+CFLAGS		+= -mplt -mno-shared -fno-builtin
+CFLAGS		+= -flto -fsection-anchors
+CFLAGS		+= -fno-stack-protector -fomit-frame-pointer
 
-CFLAGS += -D_GNU_SOURCE=1 -DIS_LITTLE_ENDIAN
-LDFLAGS = -lc -lgcc -lm -lSDL -lasound -lz -no-pie -Wl,--as-needed -Wl,--gc-sections -flto -s
+CFLAGS += -D_GNU_SOURCE=1 -DIS_LITTLE_ENDIAN -DNOSCALE
+LDFLAGS = -nodefaultlibs -lc -lgcc -lm -lSDL -lasound -lz -Wl,--as-needed -Wl,--gc-sections -flto -s
+endif
 
 ifeq ($(PROFILE), YES)
 CFLAGS 		+= -fprofile-generate="/media/data/local/home"
