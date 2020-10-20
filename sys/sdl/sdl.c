@@ -37,12 +37,11 @@ static char datfile[512];
 struct fb fb;
 
 static int use_yuv = -1;
-static int fullscreen = 2;
+static int fullscreen = 0;
 static int use_altenter = -1;
 static char Xstatus, Ystatus;
 
-static byte *fakescreen = NULL;
-static SDL_Surface *screen, *img_background, *backbuffer;
+static SDL_Surface *screen, *backbuffer, *fakescreen;
 
 static uint32_t menu_triggers = 0;
 
@@ -59,16 +58,52 @@ static int colorpalette = 0;
 extern bool emuquit;
 static int startvolume=50;
 
+#define UINT16_16(val) ((uint32_t)(val * (float)(1<<16)))
+static const uint32_t YUV_MAT[3][3] = {
+	{UINT16_16(0.2999f),   UINT16_16(0.587f),    UINT16_16(0.114f)},
+	{UINT16_16(0.168736f), UINT16_16(0.331264f), UINT16_16(0.5f)},
+	{UINT16_16(0.5f),      UINT16_16(0.418688f), UINT16_16(0.081312f)}
+};
+static uint8_t drm_palette[3][256];
+
 extern int dmg_pal[4][4];
 
 extern int state_load(int n);
 extern int state_save(int n);
+
+#ifndef SDL_TRIPLEBUF
+#define SDL_TRIPLEBUF SDL_DOUBLEBUF
+#endif
+
+#ifndef SDL_YUV444
+#define SDL_YUV444 0
+#endif
+
+static void SetVideo(void)
+{
+	uint16_t i;
+	if (screen) SDL_FreeSurface(screen);
+	screen = SDL_SetVideoMode(160, 144, 24, SDL_HWSURFACE | SDL_TRIPLEBUF | SDL_YUV444);
+	fb.w = 160;
+	fb.h = 144;
+	fb.ptr = (uint8_t*)fakescreen->pixels;
+	fb.pelsize = 1;
+	fb.pitch = fakescreen->pitch;
+	fb.indexed = 1;
+	fb.cc[0].r = 0;
+	fb.cc[1].r = 0;
+	fb.cc[2].r = 0;
+	fb.cc[0].l = 0;
+	fb.cc[1].l = 0;
+	fb.cc[2].l = 0;
+}
 
 void menu()
 {
 	char text[50];
     int16_t pressed = 0;
     int16_t currentselection = 1;
+    int fullscreen_old;
 
     SDL_Rect dstRect;
     SDL_Event Event;
@@ -77,9 +112,13 @@ void menu()
     currentselection = 1;
     
     int colorpalette_old = colorpalette;
-    int fullscreen_old = fullscreen;
+    if (fullscreen > 1) fullscreen = 1;
+    fullscreen_old = fullscreen;
     
-    while (((currentselection != 1) && (currentselection != 7)) || (!pressed))
+	if (screen) SDL_FreeSurface(screen);
+    screen = SDL_SetVideoMode(240, 160, 16, SDL_HWSURFACE | SDL_TRIPLEBUF);
+    
+    while (((currentselection != 1) && (currentselection != 6)) || (!pressed))
     {
         pressed = 0;
  		SDL_FillRect( backbuffer, NULL, 0 );
@@ -93,20 +132,12 @@ void menu()
 		
 		snprintf(text, sizeof(text), "Save State: %d", saveslot);
 		print_string(text,  (currentselection == 3 ? TextRed : TextWhite), 0, 5, 65, backbuffer->pixels);
-		
-        char scaling_mode[4][32] = {
-            "Scaling   : Native",
-            "Scaling   : 3:2 (Full)", 
-            "Scaling   : 4:3", 
-            "Scaling   : 3:2 (Alt)"
-        };
-        print_string(scaling_mode[fullscreen],  (currentselection == 4 ? TextRed : TextWhite), 0, 5, 80, backbuffer->pixels);
- 
+
         char frameskip_mode[2][32] = {
             "Frameskip : No",
             "Frameskip : Yes(NotRecommend)"
         };
-        print_string(frameskip_mode[useframeskip], (currentselection == 5 ? TextRed : TextWhite), 0, 5, 95, backbuffer->pixels);
+        print_string(frameskip_mode[useframeskip], (currentselection == 4 ? TextRed : TextWhite), 0, 5, 80, backbuffer->pixels);
 		
         char colorpalette_mode[5][32] = {
             "Mono Color: Gray",
@@ -115,9 +146,9 @@ void menu()
             "Mono Color: Black & Gray",
             "Mono Color: Black & Green"
         };
-        print_string(colorpalette_mode[colorpalette], (currentselection == 6 ? TextRed : TextWhite), 0, 5, 110, backbuffer->pixels);
+        print_string(colorpalette_mode[colorpalette], (currentselection == 5 ? TextRed : TextWhite), 0, 5, 95, backbuffer->pixels);
         
-		print_string("Quit", (currentselection == 7 ? TextRed : TextWhite), 0, 5, 135, backbuffer->pixels);
+		print_string("Quit", (currentselection == 6 ? TextRed : TextWhite), 0, 5, 110, backbuffer->pixels);
 
         while (SDL_PollEvent(&Event))
         {
@@ -128,11 +159,11 @@ void menu()
                     case SDLK_UP:
                         currentselection--;
                         if (currentselection == 0)
-                            currentselection = 7;
+                            currentselection = 6;
                         break;
                     case SDLK_DOWN:
                         currentselection++;
-                        if (currentselection == 8)
+                        if (currentselection == 7)
                             currentselection = 1;
                         break;
                     case SDLK_LCTRL:
@@ -150,13 +181,10 @@ void menu()
                             case 3:
                                 if (saveslot > 0) saveslot--;
 							break;
-                            case 4:
-                                if (fullscreen > 0) fullscreen--;
-							break;
-							case 5:
+							case 4:
 								useframeskip = 0;
 							break;
-                            case 6:
+                            case 5:
                                 if (colorpalette > 0) colorpalette --;
                             break;
                         }
@@ -167,14 +195,10 @@ void menu()
                             case 2:
                             case 3:
                                 if (saveslot < 9) saveslot++;
-							break;
-                            case 4:
-                                if (fullscreen < 3) fullscreen++;
-							break;
-							case 5:
+							case 4:
 								useframeskip = 1;
 							break;
-                            case 6:
+                            case 5:
                                 if (colorpalette < 4) colorpalette++;
                             break;
                         }
@@ -185,7 +209,7 @@ void menu()
             }
             else if (Event.type == SDL_QUIT)
             {
-				currentselection = 7;
+				currentselection = 6;
 			}
         }
 
@@ -193,19 +217,16 @@ void menu()
         {
             switch(currentselection)
             {
-				case 5:
+				case 4:
 					useframeskip = !useframeskip;
-                    break;
-                case 4 :
-                    fullscreen++;
-                    if (fullscreen > 3)
-                        fullscreen = 3;
                     break;
                 case 2 :
 					currentselection = 1;
+					state_load(saveslot);
                     break;
                 case 3 :
 					currentselection = 1;
+					state_save(saveslot);
                     break;
 				default:
                     break;
@@ -254,56 +275,50 @@ void menu()
                     dmg_pal[i][j] = paltmp4[i][j];
             break;
     }
-    pal_dirty();
     
-    SDL_FillRect(screen, NULL, 0);
-    SDL_Flip(screen);
-    SDL_FillRect(screen, NULL, 0);
-    SDL_Flip(screen);
-    SDL_FillRect(screen, NULL, 0);
-    SDL_Flip(screen);
-    
-    if (currentselection == 7)
+    if (currentselection == 6)
         emuquit = true;
+	else
+	{
+		SetVideo();
+		
+		pal_dirty();
+		
+		SDL_FillRect(screen, NULL, 0);
+		SDL_Flip(screen);
+		SDL_FillRect(screen, NULL, 0);
+		SDL_Flip(screen);
+		SDL_FillRect(screen, NULL, 0);
+		SDL_Flip(screen);
+	}
 }
+
 
 void vid_init()
 {
-	if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO))
+	uint_fast16_t i;
+	if (SDL_Init(SDL_INIT_VIDEO))
 	{
 		printf("SDL: Couldn't initialize SDL: %s\n", SDL_GetError());
 		exit(1);
 	}
 
-	screen = SDL_SetVideoMode(240, 160, 16, SDL_HWSURFACE | SDL_TRIPLEBUF);
+	SDL_ShowCursor(0);
+	fakescreen = SDL_CreateRGBSurface(SDL_HWSURFACE, 160, 144, 8, 0, 0, 0, 0);
+	backbuffer = SDL_CreateRGBSurface(SDL_HWSURFACE, 240, 160, 16, 0, 0, 0, 0);
+	SetVideo();
 	if(!screen)
 	{
 		printf("SDL: can't set video mode: %s\n", SDL_GetError());
 		exit(1);
 	}
 
-	SDL_ShowCursor(0);
-	
-	backbuffer = SDL_CreateRGBSurface(0, screen->w, screen->h, 16, 0, 0, 0, 0);
-
-	fakescreen = calloc(160*144, 2);
-
-	fb.w = 160;
-	fb.h = 144;
-	fb.ptr = fakescreen;
-	fb.pelsize = 2;
-	fb.pitch = 320;
-	fb.indexed = 0;
-	fb.cc[0].r = 3;
-	fb.cc[1].r = 2;
-	fb.cc[2].r = 3;
-	fb.cc[0].l = 11;
-	fb.cc[1].l = 5;
-	fb.cc[2].l = 0;
-
-	SDL_FillRect(screen,NULL,0);
-	SDL_Flip(screen);
-
+	for(i=0;i<256;i++)
+	{
+		drm_palette[0][i] = ( ( UINT16_16(  0) + YUV_MAT[0][0] * 0 + YUV_MAT[0][1] * 0 + YUV_MAT[0][2] * 0) >> 16 );
+		drm_palette[1][i] = ( ( UINT16_16(128) - YUV_MAT[1][0] * 0 - YUV_MAT[1][1] * 0 + YUV_MAT[1][2] * 0) >> 16 );
+		drm_palette[2][i] = ( ( UINT16_16(128) + YUV_MAT[2][0] * 0 - YUV_MAT[2][1] * 0 - YUV_MAT[2][2] * 0) >> 16 );	
+	}
 	fb.enabled = 1;
 	fb.dirty = 0;
 }
@@ -389,7 +404,6 @@ void ev_poll()
 			}
 			break;
 		case SDL_QUIT:
-			exit(1);
 			break;
 		default:
 			break;
@@ -415,6 +429,14 @@ void ev_poll()
 
 void vid_setpal(int i, int r, int g, int b)
 {
+	//colors[i].r=r;
+	//colors[i].g=g;
+	//colors[i].b=b;
+	//SDL_SetPalette(screen, SDL_LOGPAL|SDL_PHYSPAL, colors, 0, 256);
+	drm_palette[0][i] = ( ( UINT16_16(  0) + YUV_MAT[0][0] * r + YUV_MAT[0][1] * g + YUV_MAT[0][2] * b) >> 16 );
+	drm_palette[1][i] = ( ( UINT16_16(128) - YUV_MAT[1][0] * r - YUV_MAT[1][1] * g + YUV_MAT[1][2] * b) >> 16 );
+	drm_palette[2][i] = ( ( UINT16_16(128) + YUV_MAT[2][0] * r - YUV_MAT[2][1] * g - YUV_MAT[2][2] * b) >> 16 );	
+	
 }
 
 void vid_preinit()
@@ -439,7 +461,7 @@ void vid_preinit()
 	}
 	else
 	{
-		fullscreen = 2;
+		fullscreen = 0;
 		volume = 75;
 		saveslot = 0;
 		useframeskip = false;
@@ -451,8 +473,6 @@ void vid_close()
 	FILE *f;
 	setvolume(startvolume);
 	
-	if (fakescreen) free(fakescreen);
-	if (img_background) SDL_FreeSurface(img_background);
 	if (backbuffer) SDL_FreeSurface(backbuffer);
     
 	if (screen)
@@ -485,31 +505,44 @@ void vid_settitle(char *title)
 
 void vid_begin()
 {
+	uint8_t *srcbase, *dst_yuv[3];
+	uint8_t plane;
+	uint8_t width = 160;
+	uint8_t height = 144;
+	
 	if (!emuquit)
 	{
 		if ((!frameskip) ||  (!useframeskip))
 		{
-			if (SDL_LockSurface(screen) == 0)
+			dst_yuv[0] = screen->pixels;
+			dst_yuv[1] = dst_yuv[0] + height * screen->pitch;
+			dst_yuv[2] = dst_yuv[1] + height * screen->pitch;
+			srcbase = (uint8_t*)fakescreen->pixels;
+			for (plane=0; plane<3; plane++) /* The three Y, U and V planes */
 			{
-				switch(fullscreen) 
+				uint32_t y;
+				register uint8_t *pal_drm = drm_palette[plane];
+				for (y=0; y < height; y++)   /* The number of lines to copy */
 				{
-                    case 1: // 3:2(Full)
-                        upscale_160x144_to_240x160((uint16_t* restrict)fakescreen, (uint16_t* restrict)screen->pixels);
-						break;
-                    case 2: // scale 4:3
-                        upscale_160x144_to_212x160((uint16_t* restrict)fakescreen, (uint16_t* restrict)screen->pixels);
-						break;
-                    case 3: // 3:2(Alt)
-                        upscale_160x144_to_212x144((uint16_t* restrict)fakescreen, (uint16_t* restrict)screen->pixels);
-						break;
-					default: // native resolution
-						bitmap_scale(0,0,160,144,160,144, 160, screen->w-160, (uint16_t* restrict)fakescreen,(uint16_t* restrict)screen->pixels+(screen->h-144)/2*screen->w + (screen->w-160)/2);
-						break;
-				}
+					register uint8_t *src = srcbase + (y*fakescreen->w);
+					register uint8_t *end_gnuboy = end_gnuboy + width;
+					register uint32_t *dst_gnuboy = (uint32_t *)&dst_yuv[plane][width * y];
 
-				SDL_UnlockSurface(screen);
+					__builtin_prefetch(pal_drm, 0, 1 );
+					__builtin_prefetch(src, 0, 1 );
+					__builtin_prefetch(dst_gnuboy, 1, 0 );
+
+					while (src_gnuboy < end_gnuboy)       /* The actual line data to copy */
+					{
+						register uint32_t pix_gnuboy;
+						pix_gnuboy  = pal_drm[*src_gnuboy++];
+						pix_gnuboy |= (pal_drm[*src_gnuboy++])<<8;
+						pix_gnuboy |= (pal_drm[*src_gnuboy++])<<16;
+						pix_gnuboy |= (pal_drm[*src_gnuboy++])<<24;
+						*dst_gnuboy++ = pix_gnuboy;
+					}
+				}
 			}
-            
 			SDL_Flip(screen);
 		}
 		frameskip = !frameskip;
@@ -518,4 +551,5 @@ void vid_begin()
 
 void vid_end()
 {
+	
 }
