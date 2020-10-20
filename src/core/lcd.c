@@ -616,11 +616,16 @@ void lcd_refreshline()
 
 	if (fb.dirty) memset(fb.ptr, 0, fb.pitch * fb.h);
 	fb.dirty = 0;
+
+#ifdef NOSCALE
+	dest = vdest;
+	refresh_1(dest, BUF, PAL1, 160);
+	vdest += fb.pitch;
+#else
 	if (density > scale) density = scale;
 	if (scale == 1) density = 1;
 
 	dest = (density != 1) ? scalebuf : vdest;
-
 	switch (scale)
 	{
 	case 0:
@@ -695,7 +700,6 @@ void lcd_refreshline()
 	default:
 		break;
 	}
-
 	if (density != 1)
 	{
 		for (i = 0; i < scale; i++)
@@ -706,6 +710,7 @@ void lcd_refreshline()
 		}
 	}
 	else vdest += fb.pitch * scale;
+#endif
 }
 
 
