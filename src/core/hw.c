@@ -16,20 +16,24 @@ struct hw hw;
  * in doing so, raises the appropriate bit of R_IF for any interrupt
  * lines that transition from low to high.
  */
-
-void hw_interrupt(byte i, byte mask)
+void hw_interrupt(byte i, int level)
 {
-	byte oldif = R_IF;
-	i &= 0x1F & mask;
-	R_IF |= i & (hw.ilines ^ i);
+	if (level == 0)
+	{
+		hw.ilines &= ~i;
+	}
+	else if ((hw.ilines & i) == 0)
+	{
+		hw.ilines |= i;
+		R_IF |= i; // Fire!
 
-	/* FIXME - is this correct? not sure the docs understand... */
-	if ((R_IF & (R_IF ^ oldif) & R_IE) && cpu.ime) cpu.halt = 0;
-	/* if ((i & (hw.ilines ^ i) & R_IE) && cpu.ime) cpu.halt = 0; */
-	/* if ((i & R_IE) && cpu.ime) cpu.halt = 0; */
-	
-	hw.ilines &= ~mask;
-	hw.ilines |= i;
+		if ((R_IE & i) != 0)
+		{
+			// Wake up the CPU when an enabled interrupt occurs
+			// IME doesn't matter at this point, only IE
+			cpu.halt = 0;
+		}
+	}
 }
 
 
@@ -158,49 +162,40 @@ void hw_hdma_cmd(byte c)
  * the appropriate interrupts (by quickly raising and lowering the
  * interrupt line) if a transition has been made.
  */
-
 void pad_refresh()
 {
-	byte oldp1;
-	oldp1 = R_P1;
+	byte oldp1 = R_P1;
 	R_P1 &= 0x30;
 	R_P1 |= 0xc0;
-	if (!(R_P1 & 0x10))
-		R_P1 |= (hw.pad & 0x0F);
-	if (!(R_P1 & 0x20))
-		R_P1 |= (hw.pad >> 4);
+	if (!(R_P1 & 0x10)) R_P1 |= (hw.pad & 0x0F);
+	if (!(R_P1 & 0x20)) R_P1 |= (hw.pad >> 4);
 	R_P1 ^= 0x0F;
 	if (oldp1 & ~R_P1 & 0x0F)
 	{
-		hw_interrupt(IF_PAD, IF_PAD);
-		hw_interrupt(0, IF_PAD);
+		hw_interrupt(IF_PAD, 1);
+		hw_interrupt(IF_PAD, 0);
 	}
 }
 
 
 /*
- * These simple functions just update the state of a button on the pad.
+ * pad_set updates the state of one or more buttons on the pad and calls
+ * pad_refresh() to fire an interrupt if the pad changed.
  */
-
-void pad_press(byte k)
+void pad_set(byte btn, int set)
 {
-	if (hw.pad & k)
-		return;
-	hw.pad |= k;
-	pad_refresh();
-}
+	int new_pad = hw.pad;
 
-void pad_release(byte k)
-{
-	if (!(hw.pad & k))
-		return;
-	hw.pad &= ~k;
-	pad_refresh();
-}
+	if (set)
+		new_pad |= btn;
+	else
+		new_pad &= ~btn;
 
-void pad_set(byte k, int st)
-{
-	st ? pad_press(k) : pad_release(k);
+	if (hw.pad != new_pad)
+	{
+		hw.pad = new_pad;
+		pad_refresh();
+	}
 }
 
 void hw_reset()

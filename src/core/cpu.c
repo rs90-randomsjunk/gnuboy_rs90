@@ -294,8 +294,8 @@ void timer_advance(int cnt)
 		cpu.tim &= 0x1ff;
 		if (tima >= 256)
 		{
-			hw_interrupt(IF_TIMER, IF_TIMER);
-			hw_interrupt(0, IF_TIMER);
+			hw_interrupt(IF_TIMER, 1);
+			hw_interrupt(IF_TIMER, 0);
 		}
 		while (tima >= 256)
 			tima = tima - 256 + R_TMA;
@@ -900,7 +900,11 @@ next:
 		break;
 			
 	case 0x76: /* HALT */
-		cpu.halt = 1;
+		if (IME) {
+			cpu.halt = 1;
+		} else {
+			//printf("FIX ME: HALT requested with IME = 0\n");
+		}
 		break;
 
 	case 0xCB: /* CB prefix */

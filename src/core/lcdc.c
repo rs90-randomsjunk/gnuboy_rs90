@@ -21,31 +21,22 @@
 
 void stat_trigger()
 {
-	static const int condbits[4] = { 0x08, 0x10, 0x20, 0x00 };
-	int flag = 0;
+	const byte condbits[4] = { 0x08, 0x10, 0x20, 0x00 };
+	int level = 0;
 
 	if (R_LY == R_LYC)
 	{
 		R_STAT |= 0x04;
-		if (R_STAT & 0x40) flag = IF_STAT;
+		if (R_STAT & 0x40) level = 1;
 	}
 	else R_STAT &= ~0x04;
 
-	if (R_STAT & condbits[R_STAT&3]) flag = IF_STAT;
+	if (R_STAT & condbits[R_STAT&3]) level = 1;
 
-	if (!(R_LCDC & 0x80)) flag = 0;
-	
-	hw_interrupt(flag, IF_STAT);
+	if (!(R_LCDC & 0x80)) level = 0;
+
+	hw_interrupt(IF_STAT, level);
 }
-
-void stat_write(byte b)
-{
-	R_STAT = (R_STAT & 0x07) | (b & 0x78);
-	if (!hw.cgb && !(R_STAT & 2)) /* DMG STAT write bug => interrupt */
-		hw_interrupt(IF_STAT, IF_STAT);
-	stat_trigger();
-}
-
 
 /*
  * stat_change is called when a transition results in a change to the
@@ -60,8 +51,7 @@ static void stat_change(int stat)
 	stat &= 3;
 	R_STAT = (R_STAT & 0x7C) | stat;
 
-	if (stat != 1) hw_interrupt(0, IF_VBLANK);
-	/* hw_interrupt((stat == 1) ? IF_VBLANK : 0, IF_VBLANK); */
+	if (stat != 1) hw_interrupt(IF_VBLANK, 0);
 	stat_trigger();
 }
 
@@ -175,6 +165,31 @@ void lcdc_trans()
 	{
 		switch ((byte)(R_STAT & 3))
 		{
+		case 0:
+			/* hblank -> */
+			if (++R_LY >= 144)
+			{
+				/* FIXME: pick _one_ place to trigger vblank interrupt
+				this better be done here or within stat_change(),
+				otherwise CPU will have a chance to run	for some time
+				before interrupt is triggered */
+				if (cpu.halt)
+				{
+					hw_interrupt(IF_VBLANK, 1);
+					C += 228;
+				}
+				else C += 10;
+				stat_change(1); /* -> vblank */
+				break;
+			}
+			
+			// Hack for Worms Armageddon
+			if (R_STAT == 0x48)
+				hw_interrupt(IF_STAT, 0);
+			
+			stat_change(2); /* -> search */
+			C += 40;
+		break;	
 		case 1:
 			/* vblank -> */
 			if (!(hw.ilines & IF_VBLANK))
@@ -218,26 +233,6 @@ void lcdc_trans()
 			/* FIXME -- how much of the hblank does hdma use?? */
 			/* else */
 			C += 102;
-			break;
-		case 0:
-			/* hblank -> */
-			if (++R_LY >= 144)
-			{
-				/* FIXME: pick _one_ place to trigger vblank interrupt
-				this better be done here or within stat_change(),
-				otherwise CPU will have a chance to run	for some time
-				before interrupt is triggered */
-				if (cpu.halt)
-				{
-					hw_interrupt(IF_VBLANK, IF_VBLANK);
-					C += 228;
-				}
-				else C += 10;
-				stat_change(1); /* -> vblank */
-				break;
-			}
-			stat_change(2); /* -> search */
-			C += 40;
 			break;
 		}
 	}
