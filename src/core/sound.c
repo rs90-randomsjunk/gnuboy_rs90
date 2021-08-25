@@ -142,8 +142,12 @@ void sound_off()
 void sound_reset()
 {
 	memset(&snd, 0, sizeof snd);
+#ifdef ORIGINAL_SOUND_CODE
 	if (pcm.hz) snd.rate = (1<<21) / pcm.hz;
 	else snd.rate = 0;
+#else
+	snd.rate = pcm.hz ? (int)(((1<<21) / (float)pcm.hz) + 0.5f) : 0;
+#endif	
 	MEMCPY(WAVE, hw.cgb ? cgbwave : dmgwave, 16);
 	MEMCPY(ram.hi+0x30, WAVE, 16);
 	sound_off();
