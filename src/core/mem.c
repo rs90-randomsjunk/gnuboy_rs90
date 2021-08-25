@@ -1,6 +1,7 @@
 #include <stdlib.h>
 
 #include "defs.h"
+#include "cpu.h"
 #include "hw.h"
 #include "regs.h"
 #include "mem.h"
@@ -150,11 +151,9 @@ void ioreg_write(byte r, byte b)
 	case RI_SC:
 		/* FIXME - this is a hack for stupid roms that probe serial */
 		if ((b & 0x81) == 0x81)
-		{
-			R_SB = 0xff;
-			hw_interrupt(IF_SERIAL, IF_SERIAL);
-			hw_interrupt(0, IF_SERIAL);
-		}
+			cpu.serial = 488; // 8 * 122 / 2
+		else
+			cpu.serial = 0;
 		R_SC = b; /* & 0x7f; */
 		break;
 	case RI_DIV:
@@ -239,16 +238,13 @@ void ioreg_write(byte r, byte b)
 }
 
 
-byte ioreg_read(byte r)
+static inline byte ioreg_read(byte r)
 {
 	switch(r)
 	{
-	case RI_SC:
-		r = R_SC;
-		R_SC &= 0x7f;
-		return r;
-	case RI_P1:
 	case RI_SB:
+	case RI_SC:
+	case RI_P1:
 	case RI_DIV:
 	case RI_TIMA:
 	case RI_TMA:
@@ -281,7 +277,10 @@ byte ioreg_read(byte r)
 	case RI_HDMA5:
 		if (hw.cgb) return REG(r);
 	default:
-		return 0xff;
+		if (r >= 0x10 && r < 0x40) {
+			return sound_read(r);
+		}
+		return 0xFF;
 	}
 }
 

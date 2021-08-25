@@ -239,6 +239,7 @@ void cpu_reset()
 	cpu.halt = 0;
 	cpu.div = 0;
 	cpu.tim = 0;
+	cpu.serial = 0;
 	/* set lcdc ahead of cpu by 19us; see A */
 	/* FIXME: leave value at 0, use lcdc_trans() to actually send lcdc ahead */
 	cpu.lcdc = 40;
@@ -302,6 +303,28 @@ void timer_advance(int cnt)
 		R_TIMA = tima;
 	}
 }
+
+
+/* cnt - time to emulate, expressed in 2MHz units in
+	single-speed and 4MHz units in double speed mode
+*/
+inline void serial_advance(int cnt)
+{
+	if (cpu.serial > 0)
+	{
+		cpu.serial -= cnt;
+		if (cpu.serial <= 0)
+		{
+			R_SB = 0xFF;
+			R_SC &= 0x7f;
+			cpu.serial = 0;
+			hw_interrupt(IF_SERIAL, IF_SERIAL);
+			hw_interrupt(0, IF_SERIAL);
+		}
+	}
+}
+
+
 
 /* cnt - time to emulate, expressed in 2MHz units
 	Will call lcdc_trans() if CPU emulation catched up or
@@ -939,10 +962,10 @@ next:
 	}
 
 	/* Advance time counters */
-	/* FIXME: make use of cpu_timers() */
 	clen <<= 1;
 	div_advance(clen);
 	timer_advance(clen);
+	serial_advance(clen);
 	clen >>= cpu.speed;
 	lcdc_advance(clen);
 	sound_advance(clen);

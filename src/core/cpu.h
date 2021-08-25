@@ -19,6 +19,7 @@ struct cpu
 	int div, tim;
 	int lcdc;
 	int snd;
+	int serial;
 };
 
 extern struct cpu cpu;
