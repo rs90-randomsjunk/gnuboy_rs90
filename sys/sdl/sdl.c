@@ -275,7 +275,13 @@ void vid_init()
 		exit(1);
 	}
 
-	screen = SDL_SetVideoMode(240, 160, 16, SDL_HWSURFACE | SDL_TRIPLEBUF);
+	screen = SDL_SetVideoMode(240, 160, 16, SDL_HWSURFACE
+	#ifdef SDL_TRIPLEBUF
+	| SDL_TRIPLEBUF
+	#else
+	| SDL_DOUBLEBUF
+	#endif
+	);
 	if(!screen)
 	{
 		printf("SDL: can't set video mode: %s\n", SDL_GetError());
@@ -360,6 +366,7 @@ void ev_poll()
 			{
 				case SDLK_BACKSPACE:
 				case SDLK_TAB:
+				case SDLK_HOME:
 					menu_triggers = 1;
 				break;
 				case SDLK_RETURN:
