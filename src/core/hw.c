@@ -205,16 +205,18 @@ void pad_set(byte k, int st)
 
 void hw_reset()
 {
-	hw.ilines = hw.pad = 0;
+	hw.ilines = 0;
+	hw.hdma = 0;
+	hw.pad = 0;
 
-	memset(ram.hi, 0, sizeof ram.hi);
-
+	memset(ram.ibank, 0, sizeof(ram.ibank));
+	memset(ram.hi, 0, sizeof(ram.hi));
 	R_P1 = 0xFF;
 	R_LCDC = 0x91;
 	R_BGP = 0xFC;
 	R_OBP0 = 0xFF;
 	R_OBP1 = 0xFF;
-	R_SVBK = 0x01;
+	R_SVBK = 0xF9;
 	R_HDMA5 = 0xFF;
 	R_VBK = 0xFE;
 }
