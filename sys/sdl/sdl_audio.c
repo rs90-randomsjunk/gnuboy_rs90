@@ -13,17 +13,17 @@ static volatile int audio_done;
 SDL_mutex *sound_mutex;
 SDL_cond *sound_cv;
 
-static int readvolume()
+int readvolume()
 {
 	return 0;
 }
 
-static void pcm_silence()
+void pcm_silence()
 {
 	memset(pcm.buf, 0, pcm.len);	
 }
 
-static void setvolume(int involume)
+void setvolume(int involume)
 {
 }
 
@@ -51,6 +51,12 @@ void pcm_init()
 	SDL_AudioSpec as;
 
 	if (!sound) return;
+
+	if (SDL_Init(SDL_INIT_AUDIO))
+	{
+		printf("SDL: Couldn't initialize SDL sou,d: %s\n", SDL_GetError());
+		exit(1);
+	}
 
 	as.freq = samplerate;
 	as.format = AUDIO_S16SYS;
