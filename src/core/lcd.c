@@ -12,6 +12,9 @@
 #include "asm.h"
 #endif
 
+// Fix for Fushigi no Dungeon - Fuurai no Shiren GB2 and Donkey Kong
+int enable_window_offset_hack = 0;
+
 struct lcd lcd;
 
 struct scan scan;
@@ -592,6 +595,13 @@ void lcd_refreshline()
 		WX = 160;
 	WT = (L - WY) >> 3;
 	WV = (L - WY) & 7;
+	
+	// Fix for Fushigi no Dungeon - Fuurai no Shiren GB2 and Donkey Kong
+	// This is a hack, the real problem is elsewhere
+	if (enable_window_offset_hack && (R_LCDC & 0x20))
+	{
+		WT %= 12;
+	}
 
 	spr_enum();
 

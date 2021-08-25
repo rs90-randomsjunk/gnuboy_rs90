@@ -1,9 +1,9 @@
-
-
 #ifndef __LCD_H__
 #define __LCD_H__
 
 #include "defs.h"
+
+extern int enable_window_offset_hack;
 
 struct vissprite
 {

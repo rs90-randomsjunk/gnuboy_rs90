@@ -191,6 +191,13 @@ int rom_load()
 	c = header[0x0143];
 	hw.cgb = ((c == 0x80) || (c == 0xc0)) && !forcedmg;
 	hw.gba = (hw.cgb && gbamode);
+	
+	// Apply game-specific hacks
+	if (strncmp(rom.name, "SIREN GB2 ", 11) == 0 || strncmp(rom.name, "DONKEY KONG", 11) == 0)
+	{
+		printf("loader: HACK: Window offset hack enabled\n");
+		enable_window_offset_hack = 1;
+	}
     
     if (strcmp(romfile, "-")) fclose(f);
 
