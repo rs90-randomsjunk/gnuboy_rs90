@@ -336,28 +336,28 @@ void ev_poll()
 					menu_triggers = 1;
 				break;
 				case SDLK_RETURN:
-					pad_press(PAD_START);
+					pad_set(PAD_START, 1);
 				break;
 				case SDLK_ESCAPE:
-					pad_press(PAD_SELECT);
+					pad_set(PAD_SELECT, 1);
 				break;
 				case SDLK_UP:
-					pad_press(PAD_UP);
+					pad_set(PAD_UP, 1);
 				break;
 				case SDLK_LEFT:
-					pad_press(PAD_LEFT);
+					pad_set(PAD_LEFT, 1);
 				break;
 				case SDLK_RIGHT:
-					pad_press(PAD_RIGHT);
+					pad_set(PAD_RIGHT, 1);
 				break;
 				case SDLK_DOWN:
-					pad_press(PAD_DOWN);
+					pad_set(PAD_DOWN, 1);
 				break;
 				case SDLK_LCTRL:
-					pad_press(PAD_A);
+					pad_set(PAD_A, 1);
 				break;
 				case SDLK_LALT:
-					pad_press(PAD_B);
+					pad_set(PAD_B, 1);
 				break;
 			}
 			break;
@@ -370,28 +370,28 @@ void ev_poll()
 					menu_triggers = 1;
 				break;
 				case SDLK_RETURN:
-					pad_release(PAD_START);
+					pad_set(PAD_START, 0);
 				break;
 				case SDLK_ESCAPE:
-					pad_release(PAD_SELECT);
+					pad_set(PAD_SELECT, 0);
 				break;
 				case SDLK_UP:
-					pad_release(PAD_UP);
+					pad_set(PAD_UP, 0);
 				break;
 				case SDLK_LEFT:
-					pad_release(PAD_LEFT);
+					pad_set(PAD_LEFT, 0);
 				break;
 				case SDLK_RIGHT:
-					pad_release(PAD_RIGHT);
+					pad_set(PAD_RIGHT, 0);
 				break;
 				case SDLK_DOWN:
-					pad_release(PAD_DOWN);
+					pad_set(PAD_DOWN, 0);
 				break;
 				case SDLK_LCTRL:
-					pad_release(PAD_A);
+					pad_set(PAD_A, 0);
 				break;
 				case SDLK_LALT:
-					pad_release(PAD_B);
+					pad_set(PAD_B, 0);
 				break;
 			}
 			break;
