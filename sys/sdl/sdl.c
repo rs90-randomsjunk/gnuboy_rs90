@@ -30,6 +30,7 @@
 #include "sound.h"
 #include "sound_output.h"
 #include "save.h"
+#include "rtc.h"
 
 bool emuquit = 0;
 
@@ -103,7 +104,6 @@ extern void cleanup();
 void menu()
 {
 	char tmp_save_dir[256];
-	char cart_name[16];
 	char text[50];
     int16_t pressed = 0;
     int16_t currentselection = 1;
@@ -113,8 +113,6 @@ void menu()
     
     pressed = 0;
     currentselection = 1;
-    
-    snprintf(cart_name, sizeof(cart_name), "%s", cart.name);
     
     while (((currentselection != 1) && (currentselection != 6)) || (!pressed))
     {
@@ -224,13 +222,14 @@ void menu()
                         fullscreen = 3;
                     break;
                 case 2 :
-					snprintf(tmp_save_dir, sizeof(tmp_save_dir), "%s/%s_%d.sts", statesdir, cart_name, saveslot);
+					snprintf(tmp_save_dir, sizeof(tmp_save_dir), "%s/%s_%d.sts", statesdir, cart.name, saveslot);
 					state_load(tmp_save_dir);
 					currentselection = 1;
                     break;
                 case 3 :
-					snprintf(tmp_save_dir, sizeof(tmp_save_dir), "%s/%s_%d.sts", statesdir, cart_name, saveslot);
+					snprintf(tmp_save_dir, sizeof(tmp_save_dir), "%s/%s_%d.sts", statesdir, cart.name, saveslot);
 					state_save(tmp_save_dir);
+					currentselection = 1;
                     break;
 				default:
                     break;
@@ -252,7 +251,13 @@ void menu()
     SDL_Flip(screen);
     
     if (currentselection == 6)
+    {
         emuquit = true;
+		snprintf(tmp_save_dir, sizeof(tmp_save_dir), "%s/%s.sav", savesdir, cart.name);
+		sram_save(tmp_save_dir);
+		snprintf(tmp_save_dir, sizeof(tmp_save_dir), "%s/%s.rtc", savesdir, cart.name);
+		rtc_save(tmp_save_dir);
+	}
 }
 
 void vid_init()
@@ -523,6 +528,7 @@ void vid_begin()
 int main(int argc, char *argv[])
 {
 	char* rom;
+	char tmp_save_dir[192];
 	rom = strdup(argv[1]);
 	
 	sys_initpath();
@@ -536,6 +542,12 @@ int main(int argc, char *argv[])
 	
 	gnuboy_init();
 	gnuboy_reset(1);
+	
+	/* Only load the SRAM after we reset the memory. */
+    snprintf(tmp_save_dir, sizeof(tmp_save_dir), "%s/%s.sav", savesdir, cart.name);
+    sram_load(tmp_save_dir);
+    snprintf(tmp_save_dir, sizeof(tmp_save_dir), "%s/%s.rtc", savesdir, cart.name);
+    rtc_load(tmp_save_dir);
 	
 	gnuboy_run(1);
 	

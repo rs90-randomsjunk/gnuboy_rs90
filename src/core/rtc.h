@@ -17,8 +17,8 @@ extern gb_rtc_t rtc;
 
 void rtc_latch(byte b);
 void rtc_write(byte b);
-void rtc_save(FILE *f);
-void rtc_load(FILE *f);
+int rtc_save(const char *file);
+int rtc_load(const char *file);
 void rtc_tick();
 void rtc_reset(bool hard);
 

@@ -90,39 +90,61 @@ void rtc_tick()
 	}
 }
 
-void rtc_save(FILE *f)
+int rtc_save(const char *file)
 {
+	int ret = -1;
 	int64_t rt = RT_BASE + (rtc.s + (rtc.m * 60) + (rtc.h * 3600) + (rtc.d * 86400));
+	FILE *f;
 
-	fwrite(&rtc.s, 4, 1, f);
-	fwrite(&rtc.m, 4, 1, f);
-	fwrite(&rtc.h, 4, 1, f);
-	fwrite(&rtc.d, 4, 1, f);
-	fwrite(&rtc.flags, 4, 1, f);
-	for (int i = 0; i < 5; i++) {
-		fwrite(&rtc.regs[i], 4, 1, f);
+	if (!file || !*file)
+		return -1;
+
+	if ((f = fopen(file, "wb")))
+	{
+		fwrite(&rtc.s, 4, 1, f);
+		fwrite(&rtc.m, 4, 1, f);
+		fwrite(&rtc.h, 4, 1, f);
+		fwrite(&rtc.d, 4, 1, f);
+		fwrite(&rtc.flags, 4, 1, f);
+		for (int i = 0; i < 5; i++) {
+			fwrite(&rtc.regs[i], 4, 1, f);
+		}
+		fwrite(&rt, 8, 1, f);
+		fclose(f);
 	}
-	fwrite(&rt, 8, 1, f);
+
+	return ret;
 }
 
-void rtc_load(FILE *f)
+int rtc_load(const char *file)
 {
+	int ret = -1;
+	FILE *f;
 	int64_t rt = 0;
 
-	// Try to read old format first
-	int tmp = fscanf(f, "%d %*d %d %02d %02d %02d %02d\n%*d\n",
-		&rtc.flags, &rtc.d, &rtc.h, &rtc.m, &rtc.s, &rtc.ticks);
+	if (!file || !*file)
+		return -1;
 
-	if (tmp >= 5)
-		return;
+	if ((f = fopen(file, "rb")))
+	{
+		// Try to read old format first
+		int tmp = fscanf(f, "%d %*d %d %02d %02d %02d %02d\n%*d\n",
+			&rtc.flags, &rtc.d, &rtc.h, &rtc.m, &rtc.s, &rtc.ticks);
 
-	fread(&rtc.s, 4, 1, f);
-	fread(&rtc.m, 4, 1, f);
-	fread(&rtc.h, 4, 1, f);
-	fread(&rtc.d, 4, 1, f);
-	fread(&rtc.flags, 4, 1, f);
-	for (int i = 0; i < 5; i++) {
-		fread(&rtc.regs[i], 4, 1, f);
+		if (tmp >= 5)
+			return ret;
+
+		fread(&rtc.s, 4, 1, f);
+		fread(&rtc.m, 4, 1, f);
+		fread(&rtc.h, 4, 1, f);
+		fread(&rtc.d, 4, 1, f);
+		fread(&rtc.flags, 4, 1, f);
+		for (int i = 0; i < 5; i++) {
+			fread(&rtc.regs[i], 4, 1, f);
+		}
+		fread(&rt, 8, 1, f);
+		fclose(f);
 	}
-	fread(&rt, 8, 1, f);
+
+	return ret;
 }

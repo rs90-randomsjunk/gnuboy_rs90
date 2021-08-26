@@ -129,10 +129,10 @@ int sram_load(const char *file)
 	if ((f = fopen(file, "rb")))
 	{
 		MESSAGE_INFO("Loading SRAM from '%s'\n", file);
-		if (fread(cart.rambanks, 8192, cart.ramsize, f))
+		if (fread(cart.rambanks, 8192 * cart.ramsize, 1, f))
 		{
 			cart.sram_dirty = 0;
-			rtc_load(f);
+			//rtc_load(f);
 			ret = 0;
 		}
 		fclose(f);
@@ -152,11 +152,11 @@ int sram_save(const char *file)
 
 	if ((f = fopen(file, "wb")))
 	{
-		MESSAGE_INFO("Saving SRAM to '%s'\n", file);
-		if (fwrite(cart.rambanks, 8192, cart.ramsize, f))
+		MESSAGE_INFO("Saving SRAM to '%s', %d\n", file, cart.ramsize);
+		if (fwrite(cart.rambanks, 8192 * cart.ramsize, 1, f))
 		{
 			cart.sram_dirty = 0;
-			rtc_save(f);
+			//rtc_save(f);
 			ret = 0;
 		}
 		fclose(f);
