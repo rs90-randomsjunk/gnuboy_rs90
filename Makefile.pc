@@ -7,7 +7,7 @@ CC = -gcc
 LD = $(CC)
 AS = $(CC)
 
-CFLAGS = -O2 -pg -D_GNU_SOURCE=1 -DIS_LITTLE_ENDIAN
+CFLAGS = -O0 -g3 -D_GNU_SOURCE=1 -DIS_LITTLE_ENDIAN
 
 LDFLAGS = $(CFLAGS) 
 ASFLAGS = $(CFLAGS)
@@ -18,9 +18,9 @@ ASM_OBJS =
 
 SYS_DEFS = -DHAVE_CONFIG_H -DIS_LITTLE_ENDIAN -DIS_LINUX -DNATIVE_AUDIO
 SYS_OBJS = sys/nix/nix.o $(ASM_OBJS)
-SYS_INCS = -I./sys/nix -Ifont -Isrc/core
+SYS_INCS = -I./sys/nix -Ifont -Isrc/core -Isys
 
-SDL_OBJS = sys/sdl/sdl.o sys/sdl/keymap.o sys/sdl/scaler.o sys/sdl/font_drawing.o sys/alsa/alsa.o
+SDL_OBJS = sys/sdl/sdl.o sys/sdl/keymap.o sys/sdl/scaler.o sys/sdl/font_drawing.o sys/sdl/sdl_audio.o
 SDL_LIBS =  -lSDL -lasound
 SDL_CFLAGS = -D_GNU_SOURCE=1
 

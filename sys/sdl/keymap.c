@@ -7,8 +7,7 @@
  */
 
 #include <SDL/SDL_keysym.h>
-#include "input.h"
-
+/*
 int keymap[][2] = {
 	{ SDLK_LSHIFT, K_SHIFT },
 	{ SDLK_RSHIFT, K_SHIFT },
@@ -83,5 +82,5 @@ int keymap[][2] = {
 	{ SDLK_KP_ENTER, K_NUMENTER },
 
 	{ 0, 0 }
-};
+};*/
 

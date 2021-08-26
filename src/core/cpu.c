@@ -1,78 +1,150 @@
-#include <stdio.h>
-#include "defs.h"
-#include "regs.h"
+#include "gnuboy.h"
 #include "hw.h"
+#include "lcd.h"
 #include "cpu.h"
-#include "mem.h"
-#include "fastmem.h"
-#include "cpuregs.h"
-#include "cpucore.h"
-#include "lcdc.h"
+#include "sound.h"
 
-#ifdef USE_ASM
-#include "asm.h"
-#endif
+// For cycle accurate emulation this needs to be 1
+// Anything above 10 have diminishing returns
+#define COUNTERS_TICK_PERIOD 8
 
-struct cpu cpu;
+static const byte cycles_table[256] =
+{
+	1, 3, 2, 2, 1, 1, 2, 1, 5, 2, 2, 2, 1, 1, 2, 1,
+	1, 3, 2, 2, 1, 1, 2, 1, 3, 2, 2, 2, 1, 1, 2, 1,
+	3, 3, 2, 2, 1, 1, 2, 1, 3, 2, 2, 2, 1, 1, 2, 1,
+	3, 3, 2, 2, 3, 3, 3, 1, 3, 2, 2, 2, 1, 1, 2, 1,
+
+	1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+	1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+	1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+	2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1,
+
+	1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+	1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+	1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+	1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+
+	5, 3, 4, 4, 6, 4, 2, 4, 5, 4, 4, 1, 6, 6, 2, 4,
+	5, 3, 4, 0, 6, 4, 2, 4, 5, 4, 4, 0, 6, 0, 2, 4,
+	3, 3, 2, 0, 0, 4, 2, 4, 4, 1, 4, 0, 0, 0, 2, 4,
+	3, 3, 2, 1, 0, 4, 2, 4, 3, 2, 4, 1, 0, 0, 2, 4,
+};
+
+static const byte cb_cycles_table[256] =
+{
+	2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+	2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+	2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+	2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+
+	2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2,
+	2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2,
+	2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2,
+	2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2,
+
+	2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+	2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+	2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+	2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+
+	2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+	2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+	2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+	2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+};
+
+static const byte incflag_table[256] =
+{
+	FZ|FH, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	FH, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	FH, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	FH, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	FH, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	FH, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	FH, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	FH, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	FH, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	FH, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	FH, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	FH, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	FH, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	FH, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	FH, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	FH, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+};
+
+static const byte decflag_table[256] =
+{
+	FZ|FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN|FH,
+	FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN|FH,
+	FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN|FH,
+	FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN|FH,
+	FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN|FH,
+	FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN|FH,
+	FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN|FH,
+	FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN|FH,
+	FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN|FH,
+	FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN|FH,
+	FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN|FH,
+	FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN|FH,
+	FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN|FH,
+	FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN|FH,
+	FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN|FH,
+	FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN, FN|FH
+};
+
+static const byte swap_table[256] =
+{
+	0x00, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80, 0x90, 0xA0, 0xB0, 0xC0, 0xD0, 0xE0, 0xF0,
+	0x01, 0x11, 0x21, 0x31, 0x41, 0x51, 0x61, 0x71, 0x81, 0x91, 0xA1, 0xB1, 0xC1, 0xD1, 0xE1, 0xF1,
+	0x02, 0x12, 0x22, 0x32, 0x42, 0x52, 0x62, 0x72, 0x82, 0x92, 0xA2, 0xB2, 0xC2, 0xD2, 0xE2, 0xF2,
+	0x03, 0x13, 0x23, 0x33, 0x43, 0x53, 0x63, 0x73, 0x83, 0x93, 0xA3, 0xB3, 0xC3, 0xD3, 0xE3, 0xF3,
+	0x04, 0x14, 0x24, 0x34, 0x44, 0x54, 0x64, 0x74, 0x84, 0x94, 0xA4, 0xB4, 0xC4, 0xD4, 0xE4, 0xF4,
+	0x05, 0x15, 0x25, 0x35, 0x45, 0x55, 0x65, 0x75, 0x85, 0x95, 0xA5, 0xB5, 0xC5, 0xD5, 0xE5, 0xF5,
+	0x06, 0x16, 0x26, 0x36, 0x46, 0x56, 0x66, 0x76, 0x86, 0x96, 0xA6, 0xB6, 0xC6, 0xD6, 0xE6, 0xF6,
+	0x07, 0x17, 0x27, 0x37, 0x47, 0x57, 0x67, 0x77, 0x87, 0x97, 0xA7, 0xB7, 0xC7, 0xD7, 0xE7, 0xF7,
+	0x08, 0x18, 0x28, 0x38, 0x48, 0x58, 0x68, 0x78, 0x88, 0x98, 0xA8, 0xB8, 0xC8, 0xD8, 0xE8, 0xF8,
+	0x09, 0x19, 0x29, 0x39, 0x49, 0x59, 0x69, 0x79, 0x89, 0x99, 0xA9, 0xB9, 0xC9, 0xD9, 0xE9, 0xF9,
+	0x0A, 0x1A, 0x2A, 0x3A, 0x4A, 0x5A, 0x6A, 0x7A, 0x8A, 0x9A, 0xAA, 0xBA, 0xCA, 0xDA, 0xEA, 0xFA,
+	0x0B, 0x1B, 0x2B, 0x3B, 0x4B, 0x5B, 0x6B, 0x7B, 0x8B, 0x9B, 0xAB, 0xBB, 0xCB, 0xDB, 0xEB, 0xFB,
+	0x0C, 0x1C, 0x2C, 0x3C, 0x4C, 0x5C, 0x6C, 0x7C, 0x8C, 0x9C, 0xAC, 0xBC, 0xCC, 0xDC, 0xEC, 0xFC,
+	0x0D, 0x1D, 0x2D, 0x3D, 0x4D, 0x5D, 0x6D, 0x7D, 0x8D, 0x9D, 0xAD, 0xBD, 0xCD, 0xDD, 0xED, 0xFD,
+	0x0E, 0x1E, 0x2E, 0x3E, 0x4E, 0x5E, 0x6E, 0x7E, 0x8E, 0x9E, 0xAE, 0xBE, 0xCE, 0xDE, 0xEE, 0xFE,
+	0x0F, 0x1F, 0x2F, 0x3F, 0x4F, 0x5F, 0x6F, 0x7F, 0x8F, 0x9F, 0xAF, 0xBF, 0xCF, 0xDF, 0xEF, 0xFF,
+};
 
 #define ZFLAG(n) ( (n) ? 0 : FZ )
 #define HFLAG(n) ( (n) ? 0 : FH )
 #define CFLAG(n) ( (n) ? 0 : FC )
 
-
-#define PUSH(w) ( (SP -= 2), (writew(xSP, (w))) )
-#define POP(w) ( ((w) = readw(xSP)), (SP += 2) )
-
-
-#define FETCH_OLD ( mbc.rmap[PC>>12] \
-? mbc.rmap[PC>>12][PC++] \
-: mem_read(PC++) )
+#define PUSH(w) ( (SP -= 2), (writew(SP, (w))) )
+#define POP(w)  ( ((w) = readw(SP)), (SP += 2) )
 
 #define FETCH (readb(PC++))
 
-
-#define INC(r) { ((r)++); \
-F = (F & (FL|FC)) | incflag_table[(r)]; }
-
-#define DEC(r) { ((r)--); \
-F = (F & (FL|FC)) | decflag_table[(r)]; }
+#define INC(r) { ((r)++); F = (F & (FL|FC)) | incflag_table[(r)]; }
+#define DEC(r) { ((r)--); F = (F & (FL|FC)) | decflag_table[(r)]; }
 
 #define INCW(r) ( (r)++ )
-
 #define DECW(r) ( (r)-- )
 
 #define ADD(n) { \
 W(acc) = (un16)A + (un16)(n); \
-F = (ZFLAG(LB(acc))) \
-| (FH & ((A ^ (n) ^ LB(acc)) << 1)) \
-| (HB(acc) << 4); \
+F = (ZFLAG(LB(acc))) | (FH & ((A ^ (n) ^ LB(acc)) << 1)) | (HB(acc) << 4); \
 A = LB(acc); }
 
 #define ADC(n) { \
 W(acc) = (un16)A + (un16)(n) + (un16)((F&FC)>>4); \
-F = (ZFLAG(LB(acc))) \
-| (FH & ((A ^ (n) ^ LB(acc)) << 1)) \
-| (HB(acc) << 4); \
+F = (ZFLAG(LB(acc))) | (FH & ((A ^ (n) ^ LB(acc)) << 1)) | (HB(acc) << 4); \
 A = LB(acc); }
 
 #define ADDW(n) { \
-DW(acc) = (un32)HL + (un32)(n); \
-F = (F & (FZ)) \
-| (FH & ((H ^ ((n)>>8) ^ HB(acc)) << 1)) \
-| (acc.b[HI][LO] << 4); \
-HL = W(acc); }
-
-#define ADDSP(n) { \
-DW(acc) = (un32)SP + (un32)(n8)(n); \
-F = (FH & (((SP>>8) ^ ((n)>>8) ^ HB(acc)) << 1)) \
-| (acc.b[HI][LO] << 4); \
-SP = W(acc); }
-
-#define LDHLSP(n) { \
-DW(acc) = (un32)SP + (un32)(n8)(n); \
-F = (FH & (((SP>>8) ^ ((n)>>8) ^ HB(acc)) << 1)) \
-| (acc.b[HI][LO] << 4); \
-HL = W(acc); }
+temp = (un32)HL + (un32)(n); \
+F &= FZ; \
+if (0xFFFF - (n) < HL) F |= FC; \
+if ((HL & 0xFFF) + ((n) & 0xFFF) > 0xFFF) F |= FH; \
+HL = temp; }
 
 #define CP(n) { \
 W(acc) = (un16)A - (un16)(n); \
@@ -91,70 +163,52 @@ F = FN \
 | ((un8)(-(n8)HB(acc)) << 4); \
 A = LB(acc); }
 
-#define AND(n) { A &= (n); \
-F = ZFLAG(A) | FH; }
+#define AND(n) { A &= (n); F = ZFLAG(A) | FH; }
+#define XOR(n) { A ^= (n); F = ZFLAG(A); }
+#define OR(n)  { A |= (n); F = ZFLAG(A); }
 
-#define XOR(n) { A ^= (n); \
-F = ZFLAG(A); }
-
-#define OR(n) { A |= (n); \
-F = ZFLAG(A); }
-
-#define RLCA(r) { (r) = ((r)>>7) | ((r)<<1); \
-F = (((r)&0x01)<<4); }
-
-#define RRCA(r) { (r) = ((r)<<7) | ((r)>>1); \
-F = (((r)&0x80)>>3); }
-
-#define RLA(r) { \
-LB(acc) = (((r)&0x80)>>3); \
-(r) = ((r)<<1) | ((F&FC)>>4); \
-F = LB(acc); }
-
-#define RRA(r) { \
-LB(acc) = (((r)&0x01)<<4); \
-(r) = ((r)>>1) | ((F&FC)<<3); \
-F = LB(acc); }
+#define RLCA(r) { (r) = ((r)>>7) | ((r)<<1); F = (((r)&0x01)<<4); }
+#define RRCA(r) { (r) = ((r)<<7) | ((r)>>1); F = (((r)&0x80)>>3); }
+#define RLA(r) { LB(acc) = (((r)&0x80)>>3); (r) = ((r)<<1) | ((F&FC)>>4); F = LB(acc); }
+#define RRA(r) { LB(acc) = (((r)&0x01)<<4); (r) = ((r)>>1) | ((F&FC)<<3); F = LB(acc); }
 
 #define RLC(r) { RLCA(r); F |= ZFLAG(r); }
 #define RRC(r) { RRCA(r); F |= ZFLAG(r); }
-#define RL(r) { RLA(r); F |= ZFLAG(r); }
-#define RR(r) { RRA(r); F |= ZFLAG(r); }
+#define RL(r)  { RLA(r); F |= ZFLAG(r); }
+#define RR(r)  { RRA(r); F |= ZFLAG(r); }
 
-#define SLA(r) { \
-LB(acc) = (((r)&0x80)>>3); \
-(r) <<= 1; \
-F = ZFLAG((r)) | LB(acc); }
+#define SLA(r) { LB(acc) = (((r)&0x80)>>3); (r) <<= 1; F = ZFLAG((r)) | LB(acc); }
+#define SRA(r) { LB(acc) = (((r)&0x01)<<4); (r) = (un8)(((n8)(r))>>1); F = ZFLAG((r)) | LB(acc); }
+#define SRL(r) { LB(acc) = (((r)&0x01)<<4); (r) >>= 1; F = ZFLAG((r)) | LB(acc); }
 
-#define SRA(r) { \
-LB(acc) = (((r)&0x01)<<4); \
-(r) = (un8)(((n8)(r))>>1); \
-F = ZFLAG((r)) | LB(acc); }
-
-#define SRL(r) { \
-LB(acc) = (((r)&0x01)<<4); \
-(r) >>= 1; \
-F = ZFLAG((r)) | LB(acc); }
-
-#define CPL(r) { \
-(r) = ~(r); \
-F |= (FH|FN); }
+#define CPL(r) { (r) = ~(r); F |= (FH|FN); }
 
 #define SCF { F = (F & (FZ)) | FC; }
-
 #define CCF { F = (F & (FZ|FC)) ^ FC; }
 
-#define DAA { \
-A += (LB(acc) = daa_table[((((int)F)&0x70)<<4) | A]); \
-F = (F & (FN)) | ZFLAG(A) | daa_carry_table[LB(acc)>>2]; }
-
-#define SWAP(r) { \
-(r) = swap_table[(r)]; \
-F = ZFLAG((r)); }
+#define SWAP(r) { (r) = swap_table[(r)]; F = ZFLAG((r)); }
 
 #define BIT(n,r) { F = (F & FC) | ZFLAG(((r) & (1 << (n)))) | FH; }
 #define RES(n,r) { (r) &= ~(1 << (n)); }
 #define SET(n,r) { (r) |= (1 << (n)); }
+
+#define JR ( PC += 1+(n8)readb(PC) )
+#define JP ( PC = readw(PC) )
+
+#define NOJR   ( clen--,  PC++ )
+#define NOJP   ( clen--,  PC+=2 )
+#define NOCALL ( clen-=3, PC+=2 )
+#define NORET  ( clen-=3 )
+
+#define RST(n) { PUSH(PC); PC = (n); }
+
+#define CALL ( PUSH(PC+2), JP )
+#define RET ( POP(PC) )
+
+#define EI ( IMA = 1 )
+#define DI ( cpu.halted = IMA = IME = 0 )
+
+#define COND_EXEC_INT(i, n) if (temp & i) { DI; PUSH(PC); R_IF &= ~i; PC = 0x40+((n)<<3); clen = 5; goto _skip; }
 
 #define CB_REG_CASES(r, n) \
 case 0x00|(n): RLC(r); break; \
@@ -203,248 +257,142 @@ case (base)+6: b = readb(HL); goto label; \
 case (base)+7: b = A; \
 label: op(b); break;
 
-#define JR ( PC += 1+(n8)readb(PC) )
-#define JP ( PC = readw(PC) )
 
-#define CALL ( PUSH(PC+2), JP )
-
-#define NOJR ( clen--, PC++ )
-#define NOJP ( clen--, PC+=2 )
-#define NOCALL ( clen-=3, PC+=2 )
-#define NORET ( clen-=3 )
-
-#define RST(n) { PUSH(PC); PC = (n); }
-
-#define RET ( POP(PC) )
-
-#define EI ( IMA = 1 )
-#define DI ( cpu.halt = IMA = IME = 0 )
+cpu_t cpu;
 
 
-
-#define PRE_INT ( DI, PUSH(PC) )
-#define THROW_INT(n) ( (IF &= ~(1<<(n))), (PC = 0x40+((n)<<3)) )
-
-
-
-
-/* A:
-	Set lcdc ahead of cpu by 19us (matches minimal hblank duration according
-	to some docs). Value from cpu.lcdc (when positive) is used to drive CPU,
-	setting some ahead-time at startup is necessary to begin emulation.
-*/
-void cpu_reset()
+void cpu_reset(bool hard)
 {
-	cpu.speed = 0;
-	cpu.halt = 0;
+	cpu.double_speed = 0;
+	cpu.halted = 0;
 	cpu.div = 0;
-	cpu.tim = 0;
-	cpu.serial = 0;
-	/* set lcdc ahead of cpu by 19us; see A */
-	/* FIXME: leave value at 0, use lcdc_trans() to actually send lcdc ahead */
-	cpu.lcdc = 40;
+	cpu.timer = 0;
+	/* set lcdc ahead of cpu by 19us; see A
+			Set lcdc ahead of cpu by 19us (matches minimal hblank duration according
+			to some docs). Value from lcd.cycles (when positive) is used to drive CPU,
+			setting some ahead-time at startup is necessary to begin emulation.
+	FIXME: leave value at 0, use lcd_emulate() to actually send lcdc ahead
+	*/
+	lcd.cycles = 40;
 
 	IME = 0;
 	IMA = 0;
-	
-	PC = 0x0100;
+
+	PC = hw.bios ? 0x0000 : 0x0100;
 	SP = 0xFFFE;
-	AF = 0x01B0;
+	AF = hw.cgb ? 0x11B0 : 0x01B0;
 	BC = 0x0013;
 	DE = 0x00D8;
 	HL = 0x014D;
-	
-	if (hw.cgb) A = 0x11;
-	if (hw.gba) B = 0x01;
 }
 
-/* cnt - time to emulate, expressed in 2MHz units in
-	single-speed and 4MHz units in double speed mode
-*/
-/* FIXME: employ common unit to drive whatever_advance(),
-	(double-speed machine cycles (2MHz) is a good candidate)
-	handle differences in place */
-void div_advance(int cnt)
+/* cnt - time to emulate, expressed in real clock cycles */
+static inline void timer_advance(int cycles)
 {
-	cpu.div += (cnt<<1);
-	if (cpu.div >= 256)
+	cpu.div += (cycles << 2);
+
+	R_DIV += (cpu.div >> 8);
+
+	cpu.div &= 0xff;
+
+	if (R_TAC & 0x04)
 	{
-		R_DIV += (cpu.div >> 8);
-		cpu.div &= 0xff;
-	}
-}
+		cpu.timer += (cycles << ((((-R_TAC) & 3) << 1) + 1));
 
-/* cnt - time to emulate, expressed in 2MHz units in
-	single-speed and 4MHz units in double speed mode
-*/
-/* FIXME: employ common unit to drive whatever_advance(),
-	(double-speed machine cycles (2MHz) is a good candidate)
-	handle differences in place */
-void timer_advance(int cnt)
-{
-	int unit, tima;
-	
-	if (!(R_TAC & 0x04)) return;
-
-	unit = ((-R_TAC) & 3) << 1;
-	cpu.tim += (cnt<<unit);
-
-	if (cpu.tim >= 512)
-	{
-		tima = R_TIMA + (cpu.tim >> 9);
-		cpu.tim &= 0x1ff;
-		if (tima >= 256)
+		if (cpu.timer >= 512)
 		{
-			hw_interrupt(IF_TIMER, 1);
-			hw_interrupt(IF_TIMER, 0);
+			int tima = R_TIMA + (cpu.timer >> 9);
+			cpu.timer &= 0x1ff;
+			if (tima >= 256)
+			{
+				hw_interrupt(IF_TIMER, 1);
+				hw_interrupt(IF_TIMER, 0);
+				tima = R_TMA;
+			}
+			R_TIMA = tima;
 		}
-		while (tima >= 256)
-			tima = tima - 256 + R_TMA;
-		R_TIMA = tima;
 	}
 }
 
-
-/* cnt - time to emulate, expressed in 2MHz units in
-	single-speed and 4MHz units in double speed mode
-*/
-inline void serial_advance(int cnt)
+/* cnt - time to emulate, expressed in real clock cycles */
+static inline void serial_advance(int cycles)
 {
-	if (cpu.serial > 0)
+	if (hw.serial > 0)
 	{
-		cpu.serial -= cnt;
-		if (cpu.serial <= 0)
+		hw.serial -= cycles << 1;
+		if (hw.serial <= 0)
 		{
 			R_SB = 0xFF;
 			R_SC &= 0x7f;
-			cpu.serial = 0;
-			hw_interrupt(IF_SERIAL, IF_SERIAL);
-			hw_interrupt(0, IF_SERIAL);
+			hw.serial = 0;
+			hw_interrupt(IF_SERIAL, 1);
+			hw_interrupt(IF_SERIAL, 0);
 		}
 	}
 }
 
-
-
-/* cnt - time to emulate, expressed in 2MHz units
-	Will call lcdc_trans() if CPU emulation catched up or
+/* cnt - time to emulate, expressed in double-speed cycles
+	Will call lcd_emulate() if CPU emulation caught up or
 	went ahead of LCDC, so that lcd never falls	behind
 */
-inline void lcdc_advance(int cnt)
+static inline void lcdc_advance(int cycles)
 {
-	cpu.lcdc -= cnt;
-	if (cpu.lcdc <= 0) lcdc_trans();
+	lcd.cycles -= cycles;
+	if (lcd.cycles <= 0) lcd_emulate();
 }
 
-/* cnt - time to emulate, expressed in 2MHz units */
-inline void sound_advance(int cnt)
+/* cnt - time to emulate, expressed in double-speed cycles */
+static inline void sound_advance(int cycles)
 {
-	cpu.snd += cnt;
+	snd.cycles += cycles;
 }
 
-/* cnt - time to emulate, expressed in 2MHz units */
-void cpu_timers(int cnt)
+/* burn cpu cycles without running any instructions */
+void cpu_burn(int cycles)
 {
-	div_advance(cnt << cpu.speed);
-	timer_advance(cnt << cpu.speed);
-	lcdc_advance(cnt);
-	sound_advance(cnt);
+
 }
-
-/* cpu_idle() 
-	Skip idle phase of CPU operation, if any
-	
-	max - maximum time to skip expressed in 2MHz units
-	returns number of cycles skipped
-*/
-/* FIXME: bring cpu_timers() out, make caller advance system */
-int cpu_idle(int max)
-{
-	int cnt, unit;
-
-	if (!(cpu.halt && IME)) return 0;
-	if (R_IF & R_IE)
-	{
-		cpu.halt = 0;
-		return 0;
-	}
-
-	/* Make sure we don't miss lcdc status events! */
-	if ((R_IE & (IF_VBLANK | IF_STAT)) && (max > cpu.lcdc))
-		max = cpu.lcdc;
-	
-	/* If timer interrupt cannot happen, this is very simple! */
-	if (!((R_IE & IF_TIMER) && (R_TAC & 0x04)))
-	{
-		cpu_timers(max);
-		return max;
-	}
-
-	/* Figure out when the next timer interrupt will happen */
-	unit = ((-R_TAC) & 3) << 1;
-	cnt = (511 - cpu.tim + (1<<unit)) >> unit;
-	cnt += (255 - R_TIMA) << (9 - unit);
-
-	if (max < cnt)
-		cnt = max;
-	
-	cpu_timers(cnt);
-	return cnt;
-}
-
-#ifndef ASM_CPU_EMULATE
 
 /* cpu_emulate()
 	Emulate CPU for time no less than specified
-	
-	cycles - time to emulate, expressed in 2MHz units
+
+	cycles - time to emulate, expressed in double-speed cycles
 	returns number of cycles emulated
-	
+
 	Might emulate up to cycles+(11) time units (longest op takes 12
 	cycles in single-speed mode)
 */
 int cpu_emulate(int cycles)
 {
-	int i;
-	byte op, cbop;
-	int clen;
-	static union reg acc;
-	static byte b;
-	static word w;
+	int clen, temp;
+	int remaining = cycles;
+	int count = 0;
+	byte op, b;
+	cpu_reg_t acc;
 
-	i = cycles;
+	if (!cpu.double_speed)
+		remaining >>= 1;
+
 next:
 	/* Skip idle cycles */
-	if ((clen = cpu_idle(i)))
-	{
-		i -= clen;
-		if (i > 0) goto next;
-		return cycles-i;
+	if (cpu.halted) {
+		clen = 1;
+		goto _skip;
 	}
 
 	/* Handle interrupts */
-	if (IME && (IF & IE))
+	if (IME && (temp = R_IF & R_IE))
 	{
-		PRE_INT;
-		switch ((byte)(IF & IE))
-		{
-		case 0x01: case 0x03: case 0x05: case 0x07:
-		case 0x09: case 0x0B: case 0x0D: case 0x0F:
-		case 0x11: case 0x13: case 0x15: case 0x17:
-		case 0x19: case 0x1B: case 0x1D: case 0x1F:
-			THROW_INT(0); break;
-		case 0x02: case 0x06: case 0x0A: case 0x0E:
-		case 0x12: case 0x16: case 0x1A: case 0x1E:
-			THROW_INT(1); break;
-		case 0x04: case 0x0C: case 0x14: case 0x1C:
-			THROW_INT(2); break;
-		case 0x08: case 0x18:
-			THROW_INT(3); break;
-		case 0x10:
-			THROW_INT(4); break;
-		}
+		COND_EXEC_INT(IF_VBLANK, 0);
+		COND_EXEC_INT(IF_STAT, 1);
+		COND_EXEC_INT(IF_TIMER, 2);
+		COND_EXEC_INT(IF_SERIAL, 3);
+		COND_EXEC_INT(IF_PAD, 4);
 	}
 	IME = IMA;
+
+	// if (cpu.disassemble)
+	// 	debug_disassemble(PC, 1);
 
 	op = FETCH;
 	clen = cycles_table[op];
@@ -460,7 +408,7 @@ next:
 	case 0x6D: /* LD L,L */
 	case 0x7F: /* LD A,A */
 		break;
-			
+
 	case 0x41: /* LD B,C */
 		B = C; break;
 	case 0x42: /* LD B,D */
@@ -472,7 +420,7 @@ next:
 	case 0x45: /* LD B,L */
 		B = L; break;
 	case 0x46: /* LD B,(HL) */
-		B = readb(xHL); break;
+		B = readb(HL); break;
 	case 0x47: /* LD B,A */
 		B = A; break;
 
@@ -487,7 +435,7 @@ next:
 	case 0x4D: /* LD C,L */
 		C = L; break;
 	case 0x4E: /* LD C,(HL) */
-		C = readb(xHL); break;
+		C = readb(HL); break;
 	case 0x4F: /* LD C,A */
 		C = A; break;
 
@@ -502,7 +450,7 @@ next:
 	case 0x55: /* LD D,L */
 		D = L; break;
 	case 0x56: /* LD D,(HL) */
-		D = readb(xHL); break;
+		D = readb(HL); break;
 	case 0x57: /* LD D,A */
 		D = A; break;
 
@@ -517,7 +465,7 @@ next:
 	case 0x5D: /* LD E,L */
 		E = L; break;
 	case 0x5E: /* LD E,(HL) */
-		E = readb(xHL); break;
+		E = readb(HL); break;
 	case 0x5F: /* LD E,A */
 		E = A; break;
 
@@ -532,10 +480,10 @@ next:
 	case 0x65: /* LD H,L */
 		H = L; break;
 	case 0x66: /* LD H,(HL) */
-		H = readb(xHL); break;
+		H = readb(HL); break;
 	case 0x67: /* LD H,A */
 		H = A; break;
-			
+
 	case 0x68: /* LD L,B */
 		L = B; break;
 	case 0x69: /* LD L,C */
@@ -547,28 +495,25 @@ next:
 	case 0x6C: /* LD L,H */
 		L = H; break;
 	case 0x6E: /* LD L,(HL) */
-		L = readb(xHL); break;
+		L = readb(HL); break;
 	case 0x6F: /* LD L,A */
 		L = A; break;
-			
+
 	case 0x70: /* LD (HL),B */
-		b = B; goto __LD_HL;
+		writeb(HL, B); break;
 	case 0x71: /* LD (HL),C */
-		b = C; goto __LD_HL;
+		writeb(HL, C); break;
 	case 0x72: /* LD (HL),D */
-		b = D; goto __LD_HL;
+		writeb(HL, D); break;
 	case 0x73: /* LD (HL),E */
-		b = E; goto __LD_HL;
+		writeb(HL, E); break;
 	case 0x74: /* LD (HL),H */
-		b = H; goto __LD_HL;
+		writeb(HL, H); break;
 	case 0x75: /* LD (HL),L */
-		b = L; goto __LD_HL;
+		writeb(HL, L); break;
 	case 0x77: /* LD (HL),A */
-		b = A;
-	__LD_HL:
-		writeb(xHL,b);
-		break;
-			
+		writeb(HL, A); break;
+
 	case 0x78: /* LD A,B */
 		A = B; break;
 	case 0x79: /* LD A,C */
@@ -582,34 +527,34 @@ next:
 	case 0x7D: /* LD A,L */
 		A = L; break;
 	case 0x7E: /* LD A,(HL) */
-		A = readb(xHL); break;
+		A = readb(HL); break;
 
 	case 0x01: /* LD BC,imm */
-		BC = readw(xPC); PC += 2; break;
+		BC = readw(PC); PC += 2; break;
 	case 0x11: /* LD DE,imm */
-		DE = readw(xPC); PC += 2; break;
+		DE = readw(PC); PC += 2; break;
 	case 0x21: /* LD HL,imm */
-		HL = readw(xPC); PC += 2; break;
+		HL = readw(PC); PC += 2; break;
 	case 0x31: /* LD SP,imm */
-		SP = readw(xPC); PC += 2; break;
+		SP = readw(PC); PC += 2; break;
 
 	case 0x02: /* LD (BC),A */
-		writeb(xBC, A); break;
+		writeb(BC, A); break;
 	case 0x0A: /* LD A,(BC) */
-		A = readb(xBC); break;
+		A = readb(BC); break;
 	case 0x12: /* LD (DE),A */
-		writeb(xDE, A); break;
+		writeb(DE, A); break;
 	case 0x1A: /* LD A,(DE) */
-		A = readb(xDE); break;
+		A = readb(DE); break;
 
 	case 0x22: /* LDI (HL),A */
-		writeb(xHL, A); HL++; break;
+		writeb(HL, A); HL++; break;
 	case 0x2A: /* LDI A,(HL) */
-		A = readb(xHL); HL++; break;
+		A = readb(HL); HL++; break;
 	case 0x32: /* LDD (HL),A */
-		writeb(xHL, A); HL--; break;
+		writeb(HL, A); HL--; break;
 	case 0x3A: /* LDD A,(HL) */
-		A = readb(xHL); HL--; break;
+		A = readb(HL); HL--; break;
 
 	case 0x06: /* LD B,imm */
 		B = FETCH; break;
@@ -624,49 +569,40 @@ next:
 	case 0x2E: /* LD L,imm */
 		L = FETCH; break;
 	case 0x36: /* LD (HL),imm */
-		b = FETCH; writeb(xHL, b); break;
+		writeb(HL, FETCH); break;
 	case 0x3E: /* LD A,imm */
 		A = FETCH; break;
 
 	case 0x08: /* LD (imm),SP */
-		writew(readw(xPC), SP); PC += 2; break;
+		writew(readw(PC), SP); PC += 2; break;
 	case 0xEA: /* LD (imm),A */
-		writeb(readw(xPC), A); PC += 2; break;
+		writeb(readw(PC), A); PC += 2; break;
 
 	case 0xE0: /* LDH (imm),A */
-		writehi(FETCH, A); break;
+		writeb(0xff00 + FETCH, A); break;
 	case 0xE2: /* LDH (C),A */
-		writehi(C, A); break;
+		writeb(0xff00 + C, A); break;
 	case 0xF0: /* LDH A,(imm) */
-		A = readhi(FETCH); break;
+		A = readb(0xff00 + FETCH); break;
 	case 0xF2: /* LDH A,(C) (undocumented) */
-		A = readhi(C); break;
-			
+		A = readb(0xff00 + C); break;
 
 	case 0xF8: /* LD HL,SP+imm */
-#if 0
-		b = FETCH; LDHLSP(b); break;
-#else
-		{
-			// https://gammpei.github.io/blog/posts/2018-03-04/how-to-write-a-game-boy-emulator-part-8-blarggs-cpu-test-roms-1-3-4-5-7-8-9-10-11.html
-			signed char v = (signed char) FETCH;
-			int temp = (int)(SP) + (int)v;
+		// https://gammpei.github.io/blog/posts/2018-03-04/how-to-write-a-game-boy-emulator-part-8-blarggs-cpu-test-roms-1-3-4-5-7-8-9-10-11.html
+		b = FETCH;
+		temp = (int)(SP) + (signed char)b;
 
-			byte half_carry = ((SP & 0xff) ^ v ^ temp) & 0x10;
+		F &= ~(FZ | FN | FH | FC);
 
-			F &= ~(FZ | FN | FH | FC);
+		if (((SP & 0xff) ^ b ^ temp) & 0x10) F |= FH;
+		if ((SP & 0xff) + b > 0xff) F |= FC;
 
-			if (half_carry) F |= FH;
-			if ((SP & 0xff) + (byte)v > 0xff) F |= FC;
-
-			HL = temp & 0xffff;
-		}
+		HL = temp;
 		break;
-#endif
 	case 0xF9: /* LD SP,HL */
 		SP = HL; break;
 	case 0xFA: /* LD A,(imm) */
-		A = readb(readw(xPC)); PC += 2; break;
+		A = readb(readw(PC)); PC += 2; break;
 
 		ALU_CASES(0x80, 0xC6, ADD, __ADD)
 		ALU_CASES(0x88, 0xCE, ADC, __ADC)
@@ -678,16 +614,13 @@ next:
 		ALU_CASES(0xB8, 0xFE, CP, __CP)
 
 	case 0x09: /* ADD HL,BC */
-		w = BC; goto __ADDW;
+		ADDW(BC); break;
 	case 0x19: /* ADD HL,DE */
-		w = DE; goto __ADDW;
+		ADDW(DE); break;
 	case 0x39: /* ADD HL,SP */
-		w = SP; goto __ADDW;
+		ADDW(SP); break;
 	case 0x29: /* ADD HL,HL */
-		w = HL;
-	__ADDW:
-		ADDW(w);
-		break;
+		ADDW(HL); break;
 
 	case 0x04: /* INC B */
 		INC(B); break;
@@ -702,13 +635,13 @@ next:
 	case 0x2C: /* INC L */
 		INC(L); break;
 	case 0x34: /* INC (HL) */
-		b = readb(xHL);
+		b = readb(HL);
 		INC(b);
-		writeb(xHL, b);
+		writeb(HL, b);
 		break;
 	case 0x3C: /* INC A */
 		INC(A); break;
-			
+
 	case 0x03: /* INC BC */
 		INCW(BC); break;
 	case 0x13: /* INC DE */
@@ -717,7 +650,7 @@ next:
 		INCW(HL); break;
 	case 0x33: /* INC SP */
 		INCW(SP); break;
-			
+
 	case 0x05: /* DEC B */
 		DEC(B); break;
 	case 0x0D: /* DEC C */
@@ -731,9 +664,9 @@ next:
 	case 0x2D: /* DEC L */
 		DEC(L); break;
 	case 0x35: /* DEC (HL) */
-		b = readb(xHL);
+		b = readb(HL);
 		DEC(b);
-		writeb(xHL, b);
+		writeb(HL, b);
 		break;
 	case 0x3D: /* DEC A */
 		DEC(A); break;
@@ -757,112 +690,95 @@ next:
 		RRA(A); break;
 
 	case 0x27: /* DAA */
-#if 0
-		DAA
-#else
+		//http://forums.nesdev.com/viewtopic.php?t=9088
+		temp = A;
+
+		if (F & FN)
 		{
-			//http://forums.nesdev.com/viewtopic.php?t=9088
-
-			int a = A;
-			if (!(F & FN))
-			{
-				if ((F & FH) || ((a & 0x0f) > 9)) a += 0x06;
-
-				if ((F & FC) || (a > 0x9f)) a += 0x60;
-			}
-			else
-			{
-				if (F & FH)	a = (a - 6) & 0xff;
-
-				if (F & FC) a -= 0x60;
-			}
-
-			F &= ~(FH | FZ);
-
-			if (a & 0x100) F |= FC;
-
-			a &= 0xff;
-
-			if (!a) F |= FZ;
-
-			A = (byte)a;
+			if (F & FH)	temp = (temp - 6) & 0xff;
+			if (F & FC) temp -= 0x60;
 		}
-#endif
+		else
+		{
+			if ((F & FH) || ((temp & 0x0f) > 9)) temp += 0x06;
+			if ((F & FC) || (temp > 0x9f)) temp += 0x60;
+		}
+
+		A = (byte)temp;
+		F &= ~(FH | FZ);
+
+		if (temp & 0x100)   F |= FC;
+		if (!(temp & 0xff)) F |= FZ;
 		break;
+
 	case 0x2F: /* CPL */
 		CPL(A); break;
 
 	case 0x18: /* JR */
-	__JR:
 		JR; break;
 	case 0x20: /* JR NZ */
-		if (!(F&FZ)) goto __JR; NOJR; break;
+		if (!(F&FZ)) JR; else NOJR; break;
 	case 0x28: /* JR Z */
-		if (F&FZ) goto __JR; NOJR; break;
+		if (F&FZ) JR; else NOJR; break;
 	case 0x30: /* JR NC */
-		if (!(F&FC)) goto __JR; NOJR; break;
+		if (!(F&FC)) JR; else NOJR; break;
 	case 0x38: /* JR C */
-		if (F&FC) goto __JR; NOJR; break;
+		if (F&FC) JR; else NOJR; break;
 
 	case 0xC3: /* JP */
-	__JP:
 		JP; break;
 	case 0xC2: /* JP NZ */
-		if (!(F&FZ)) goto __JP; NOJP; break;
+		if (!(F&FZ)) JP; else NOJP; break;
 	case 0xCA: /* JP Z */
-		if (F&FZ) goto __JP; NOJP; break;
+		if (F&FZ) JP; else NOJP; break;
 	case 0xD2: /* JP NC */
-		if (!(F&FC)) goto __JP; NOJP; break;
+		if (!(F&FC)) JP; else NOJP; break;
 	case 0xDA: /* JP C */
-		if (F&FC) goto __JP; NOJP; break;
+		if (F&FC) JP; else NOJP; break;
 	case 0xE9: /* JP HL */
 		PC = HL; break;
 
 	case 0xC9: /* RET */
-	__RET:
 		RET; break;
 	case 0xC0: /* RET NZ */
-		if (!(F&FZ)) goto __RET; NORET; break;
+		if (!(F&FZ)) RET; else NORET; break;
 	case 0xC8: /* RET Z */
-		if (F&FZ) goto __RET; NORET; break;
+		if (F&FZ) RET; else NORET; break;
 	case 0xD0: /* RET NC */
-		if (!(F&FC)) goto __RET; NORET; break;
+		if (!(F&FC)) RET; else NORET; break;
 	case 0xD8: /* RET C */
-		if (F&FC) goto __RET; NORET; break;
+		if (F&FC) RET; else NORET; break;
 	case 0xD9: /* RETI */
-		IME = IMA = 1; goto __RET;
+		IME = IMA = 1; RET; break;
 
 	case 0xCD: /* CALL */
-	__CALL:
 		CALL; break;
 	case 0xC4: /* CALL NZ */
-		if (!(F&FZ)) goto __CALL; NOCALL; break;
+		if (!(F&FZ)) CALL; else NOCALL; break;
 	case 0xCC: /* CALL Z */
-		if (F&FZ) goto __CALL; NOCALL; break;
+		if (F&FZ) CALL; else NOCALL; break;
 	case 0xD4: /* CALL NC */
-		if (!(F&FC)) goto __CALL; NOCALL; break;
+		if (!(F&FC)) CALL; else NOCALL; break;
 	case 0xDC: /* CALL C */
-		if (F&FC) goto __CALL; NOCALL; break;
+		if (F&FC) CALL; else NOCALL; break;
 
 	case 0xC7: /* RST 0 */
-		b = 0x00; goto __RST;
+		RST(0x00); break;
 	case 0xCF: /* RST 8 */
-		b = 0x08; goto __RST;
+		RST(0x08); break;
 	case 0xD7: /* RST 10 */
-		b = 0x10; goto __RST;
+		RST(0x10); break;
 	case 0xDF: /* RST 18 */
-		b = 0x18; goto __RST;
+		RST(0x18); break;
 	case 0xE7: /* RST 20 */
-		b = 0x20; goto __RST;
+		RST(0x20); break;
 	case 0xEF: /* RST 28 */
-		b = 0x28; goto __RST;
+		RST(0x28); break;
 	case 0xF7: /* RST 30 */
-		b = 0x30; goto __RST;
+		RST(0x30); break;
 	case 0xFF: /* RST 38 */
-		b = 0x38;
-	__RST:
-		RST(b); break;
-			
+		RST(0x38); break;
+
 	case 0xC1: /* POP BC */
 		POP(BC); break;
 	case 0xC5: /* PUSH BC */
@@ -881,25 +797,17 @@ next:
 		PUSH(AF); break;
 
 	case 0xE8: /* ADD SP,imm */
-#if 0
-		b = FETCH; ADDSP(b); break;
-#else
-		{
-			// https://gammpei.github.io/blog/posts/2018-03-04/how-to-write-a-game-boy-emulator-part-8-blarggs-cpu-test-roms-1-3-4-5-7-8-9-10-11.html
-			signed char v = (signed char) FETCH;
-			int temp = (int)(SP) + (int)v;
+		// https://gammpei.github.io/blog/posts/2018-03-04/how-to-write-a-game-boy-emulator-part-8-blarggs-cpu-test-roms-1-3-4-5-7-8-9-10-11.html
+		b = FETCH; // ADDSP(b); break;
+		temp = SP + (signed char)b;
 
-			byte half_carry = ((SP & 0xff) ^ v ^ temp) & 0x10;
+		F &= ~(FZ | FN | FH | FC);
 
-			F &= ~(FZ | FN | FH | FC);
+		if ((SP ^ b ^ temp) & 0x10) F |= FH;
+		if ((SP & 0xff) + b > 0xff) F |= FC;
 
-			if (half_carry) F |= FH;
-			if ((SP & 0xff) + (byte)v > 0xff) F |= FC;
-
-			SP = temp & 0xffff;
-		}
+		SP = temp;
 		break;
-#endif
 
 	case 0xF3: /* DI */
 		DI; break;
@@ -915,25 +823,25 @@ next:
 		PC++;
 		if (R_KEY1 & 1)
 		{
-			cpu.speed = cpu.speed ^ 1;
-			R_KEY1 = (R_KEY1 & 0x7E) | (cpu.speed << 7);
+			cpu.double_speed ^= 1;
+			R_KEY1 = (R_KEY1 & 0x7E) | ((cpu.double_speed & 1) << 7);
 			break;
 		}
 		/* NOTE - we do not implement dmg STOP whatsoever */
 		break;
-			
+
 	case 0x76: /* HALT */
-		if (IME) {
-			cpu.halt = 1;
-		} else {
-			//printf("FIX ME: HALT requested with IME = 0\n");
+		cpu.halted = 1;
+		if (!IME)
+		{
+			MESSAGE_DEBUG("FIX ME: HALT requested with IME = 0\n");
 		}
 		break;
 
 	case 0xCB: /* CB prefix */
-		cbop = FETCH;
-		clen = cb_cycles_table[cbop];
-		switch (cbop)
+		op = FETCH;
+		clen = cb_cycles_table[op];
+		switch (op)
 		{
 			CB_REG_CASES(B, 0);
 			CB_REG_CASES(C, 1);
@@ -943,48 +851,52 @@ next:
 			CB_REG_CASES(L, 5);
 			CB_REG_CASES(A, 7);
 		default:
-			b = readb(xHL);
-			switch(cbop)
+			b = readb(HL);
+			switch (op)
 			{
 				CB_REG_CASES(b, 6);
 			}
-			if ((cbop & 0xC0) != 0x40) /* exclude BIT */
-				writeb(xHL, b);
+			if ((op & 0xC0) != 0x40) /* exclude BIT */
+				writeb(HL, b);
 			break;
 		}
 		break;
-			
+
 	default:
-		/*die(
+		gnuboy_die(
 			"invalid opcode 0x%02X at address 0x%04X, rombank = %d\n",
-			op, (PC-1) & 0xffff, mbc.rombank);*/
+			op, (PC-1) & 0xffff, cart.rombank);
 		break;
 	}
 
-	/* Advance time counters */
-	clen <<= 1;
-	div_advance(clen);
-	timer_advance(clen);
-	serial_advance(clen);
-	clen >>= cpu.speed;
-	lcdc_advance(clen);
-	sound_advance(clen);
+_skip:
 
-	i -= clen;
-	if (i > 0) goto next;
-	return cycles-i;
+	remaining -= clen;
+	count += clen;
+
+#if COUNTERS_TICK_PERIOD > 1
+	if (count >= COUNTERS_TICK_PERIOD || remaining <= 0)
+#endif
+	{
+		/* Advance clock-bound counters */
+		timer_advance(count);
+		serial_advance(count);
+
+		if (!cpu.double_speed)
+			count <<= 1;
+
+		/* Advance fixed-speed counters */
+		lcdc_advance(count);
+		sound_advance(count);
+
+		// Here we could calculate when the next event is going to happen
+		// So that we can skip even more cycles, but it doesn't seem to save
+		// much more CPU and adds lots of complexity...
+		count = 0;
+	}
+
+	if (remaining > 0)
+		goto next;
+
+	return cycles + -remaining;
 }
-
-#endif /* ASM_CPU_EMULATE */
-
-
-#ifndef ASM_CPU_STEP
-/* Outdated equivalent of emu.c:emu_step() probably? Doesn't seem to be used. */
-int cpu_step(int max)
-{
-	int cnt;
-	if ((cnt = cpu_idle(max))) return cnt;
-	return cpu_emulate(1);
-}
-
-#endif /* ASM_CPU_STEP */

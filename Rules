@@ -1,9 +1,9 @@
 
 include Version
 
-OBJS = src/core/lcd.o src/core/refresh.o src/core/lcdc.o src/core/palette.o src/core/cpu.o src/core/mem.o src/core/rtc.o src/core/hw.o src/core/sound.o \
-	src/core/loader.o src/core/save.o src/core/emu.o src/core/main.o \
-	src/core/split.o src/core/path.o src/core/inflate.o
+OBJS = src/core/cpu.o src/core/debug.o src/core/gnuboy.o src/core/hw.o src/core/lcd.o \
+src/core/rtc.o src/core/save.o src/core/sound.o
+
 
 INCS = -I.
 

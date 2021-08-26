@@ -1,14 +1,16 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <malloc.h>
+#include <unistd.h>
+#include <time.h>
+#include <ctype.h>
 
-#include "defs.h"
-#include "cpu.h"
-#include "cpuregs.h"
+#include "gnuboy.h"
 #include "hw.h"
-#include "regs.h"
 #include "lcd.h"
 #include "rtc.h"
-#include "mem.h"
+#include "cpu.h"
 #include "sound.h"
 
 #ifdef IS_LITTLE_ENDIAN
@@ -17,27 +19,34 @@
 #define LIL(x) ((x<<24)|((x&0xff00)<<8)|((x>>8)&0xff00)|(x>>24))
 #endif
 
+#define SAVE_VERSION 0x107
+
+#define wavofs  (4096 - 784)
+#define hiofs   (4096 - 768)
+#define palofs  (4096 - 512)
+#define oamofs  (4096 - 256)
+
 #define I1(s, p) { 1, s, p }
 #define I2(s, p) { 2, s, p }
 #define I4(s, p) { 4, s, p }
-#define R(r) I1(#r, &R_##r)
-#define NOSAVE { -1, "\0\0\0\0", 0 }
 #define END { 0, "\0\0\0\0", 0 }
 
-#define MEMCPY memcpy
-
-struct svar
+typedef struct
 {
 	int len;
 	char key[4];
 	void *ptr;
-};
+} svar_t;
 
-static int ver;
-static int sramblock, iramblock, vramblock;
-static int hramofs, hiofs, palofs, oamofs, wavofs;
+typedef struct
+{
+	void *ptr;
+	int len;
+} sblock_t;
 
-struct svar svars[] =
+static un32 ver;
+
+static const svar_t svars[] =
 {
 	I4("GbSs", &ver),
 
@@ -50,33 +59,33 @@ struct svar svars[] =
 
 	I4("IME ", &cpu.ime),
 	I4("ima ", &cpu.ima),
-	I4("spd ", &cpu.speed),
-	I4("halt", &cpu.halt),
+	I4("spd ", &cpu.double_speed),
+	I4("halt", &cpu.halted),
 	I4("div ", &cpu.div),
-	I4("tim ", &cpu.tim),
-	I4("lcdc", &cpu.lcdc),
-	I4("snd ", &cpu.snd),
+	I4("tim ", &cpu.timer),
+	I4("lcdc", &lcd.cycles),
+	I4("snd ", &snd.cycles),
 
-	I1("ints", &hw.ilines),
-	I1("pad ", &hw.pad),
+	I4("ints", &hw.ilines),
+	I4("pad ", &hw.pad),
 	I4("cgb ", &hw.cgb),
-	I4("gba ", &hw.gba),
+	I4("hdma", &hw.hdma),
+	I4("seri", &hw.serial),
 
-	I4("mbcm", &mbc.model),
-	I4("romb", &mbc.rombank),
-	I4("ramb", &mbc.rambank),
-	I4("enab", &mbc.enableram),
-	I4("batt", &mbc.batt),
+	I4("mbcm", &cart.bankmode),
+	I4("romb", &cart.rombank),
+	I4("ramb", &cart.rambank),
+	I4("enab", &cart.enableram),
+	// I4("batt", &cart.batt),
 
 	I4("rtcR", &rtc.sel),
 	I4("rtcL", &rtc.latch),
-	I4("rtcC", &rtc.carry),
-	I4("rtcS", &rtc.stop),
+	I4("rtcF", &rtc.flags),
 	I4("rtcd", &rtc.d),
 	I4("rtch", &rtc.h),
 	I4("rtcm", &rtc.m),
 	I4("rtcs", &rtc.s),
-	I4("rtct", &rtc.t),
+	I4("rtct", &rtc.ticks),
 	I1("rtR8", &rtc.regs[0]),
 	I1("rtR9", &rtc.regs[1]),
 	I1("rtRA", &rtc.regs[2]),
@@ -104,133 +113,160 @@ struct svar svars[] =
 	I4("S4c ", &snd.ch[3].cnt),
 	I4("S4ec", &snd.ch[3].encnt),
 
-	I4("hdma", &hw.hdma),
-
-	I4("sram", &sramblock),
-	I4("iram", &iramblock),
-	I4("vram", &vramblock),
-	I4("hi  ", &hiofs),
-	I4("pal ", &palofs),
-	I4("oam ", &oamofs),
-	I4("wav ", &wavofs),
-
-	/* NOSAVE is a special code to prevent the rest of the table
-	 * from being saved, used to support old stuff for backwards
-	 * compatibility... */
-	NOSAVE,
-
-	/* the following are obsolete as of 0x104 */
-
-	I4("hram", &hramofs),
-
-	R(P1), R(SB), R(SC),
-	R(DIV), R(TIMA), R(TMA), R(TAC),
-	R(IE), R(IF),
-	R(LCDC), R(STAT), R(LY), R(LYC),
-	R(SCX), R(SCY), R(WX), R(WY),
-	R(BGP), R(OBP0), R(OBP1),
-	R(DMA),
-
-	R(VBK), R(SVBK), R(KEY1),
-	R(BCPS), R(BCPD), R(OCPS), R(OCPD),
-
-	R(NR10), R(NR11), R(NR12), R(NR13), R(NR14),
-	R(NR21), R(NR22), R(NR23), R(NR24),
-	R(NR30), R(NR31), R(NR32), R(NR33), R(NR34),
-	R(NR41), R(NR42), R(NR43), R(NR44),
-	R(NR50), R(NR51), R(NR52),
-
-	I1("DMA1", &R_HDMA1),
-	I1("DMA2", &R_HDMA2),
-	I1("DMA3", &R_HDMA3),
-	I1("DMA4", &R_HDMA4),
-	I1("DMA5", &R_HDMA5),
-
 	END
 };
 
 
-void loadstate(FILE *f)
+
+int sram_load(const char *file)
 {
-	int i, j;
-	byte buf[4096];
-	un32 (*header)[2] = (un32 (*)[2])buf;
-	un32 d;
-	int irl = hw.cgb ? 8 : 2;
-	int vrl = hw.cgb ? 4 : 2;
-	int srl = mbc.ramsize << 1;
+	int ret = -1;
+	FILE *f;
 
-	ver = hramofs = hiofs = palofs = oamofs = wavofs = 0;
+	if (!cart.has_battery || !cart.ramsize || !file || !*file)
+		return -1;
 
-	fseek(f, 0, SEEK_SET);
-	fread(buf, 4096, 1, f);
-
-	for (j = 0; header[j][0]; j++)
+	if ((f = fopen(file, "rb")))
 	{
-		for (i = 0; svars[i].ptr; i++)
+		MESSAGE_INFO("Loading SRAM from '%s'\n", file);
+		if (fread(cart.rambanks, 8192, cart.ramsize, f))
 		{
-			if (memcmp(&header[j][0], svars[i].key, 4))
-				continue;
-			d = LIL(header[j][1]);
-			switch (svars[i].len)
+			cart.sram_dirty = 0;
+			rtc_load(f);
+			ret = 0;
+		}
+		fclose(f);
+	}
+
+	return ret;
+}
+
+
+int sram_save(const char *file)
+{
+	int ret = -1;
+	FILE *f;
+
+	if (!cart.has_battery || !cart.ramsize || !file || !*file)
+		return -1;
+
+	if ((f = fopen(file, "wb")))
+	{
+		MESSAGE_INFO("Saving SRAM to '%s'\n", file);
+		if (fwrite(cart.rambanks, 8192, cart.ramsize, f))
+		{
+			cart.sram_dirty = 0;
+			rtc_save(f);
+			ret = 0;
+		}
+		fclose(f);
+	}
+
+	return ret;
+}
+
+
+int sram_update(const char *file)
+{
+	if (!cart.has_battery || !cart.ramsize || !file || !*file)
+		return -1;
+
+	return -9000;
+#if 0
+	FILE *fp = fopen(file, "wb");
+	if (!fp)
+	{
+		MESSAGE_ERROR("Unable to open SRAM file: %s", file);
+		goto _cleanup;
+	}
+
+	for (int pos = 0; pos < (cart.ramsize * 8192); pos += SRAM_SECTOR_SIZE)
+	{
+		int sector = pos / SRAM_SECTOR_SIZE;
+
+		if (cart.sram_dirty_sector[sector])
+		{
+			// MESSAGE_INFO("Writing sram sector #%d @ %ld\n", sector, pos);
+
+			if (fseek(fp, pos, SEEK_SET) != 0)
 			{
-			case 1:
-				*(byte *)svars[i].ptr = d;
-				break;
-			case 2:
-				*(un16 *)svars[i].ptr = d;
-				break;
-			case 4:
-				*(un32 *)svars[i].ptr = d;
-				break;
+				MESSAGE_ERROR("Failed to seek sram sector #%d\n", sector);
+				goto _cleanup;
 			}
-			break;
+
+			if (fwrite(&cart.sram[pos], SRAM_SECTOR_SIZE, 1, fp) != 1)
+			{
+				MESSAGE_ERROR("Failed to write sram sector #%d\n", sector);
+				goto _cleanup;
+			}
+
+			cart.sram_dirty_sector[sector] = 0;
 		}
 	}
 
-	/* obsolete as of version 0x104 */
-	if (hramofs) MEMCPY(ram.hi+128, buf+hramofs, 127);
+	if (fseek(fp, cart.ramsize * 8192, SEEK_SET) == 0)
+	{
+		rtc_save(fp);
+	}
 
-	if (hiofs) MEMCPY(ram.hi, buf+hiofs, sizeof ram.hi);
-	if (palofs) MEMCPY(lcd.pal, buf+palofs, sizeof lcd.pal);
-	if (oamofs) MEMCPY(lcd.oam.mem, buf+oamofs, sizeof lcd.oam);
+_cleanup:
+	// Keeping the file open between calls is dangerous unfortunately
 
-	if (wavofs) MEMCPY(snd.wave, buf+wavofs, sizeof snd.wave);
-	else MEMCPY(snd.wave, ram.hi+0x30, 16); /* patch data from older files */
+	// if (cart.romsize < 64)
+	// {
+	// 	fflush(cart.sramFile);
+	// }
+	// else
 
-	fseek(f, iramblock<<12, SEEK_SET);
-	fread(ram.ibank, 4096, irl, f);
-
-	fseek(f, vramblock<<12, SEEK_SET);
-	fread(lcd.vbank, 4096, vrl, f);
-
-	fseek(f, sramblock<<12, SEEK_SET);
-	fread(ram.sbank, 4096, srl, f);
+	if (fclose(fp) == 0)
+	{
+		cart.sram_dirty = 0;
+	}
+	return 0;
+#endif
 }
 
-void savestate(FILE *f)
+
+/**
+ * Save file format is:
+ * GB:
+ * 0x0000 - 0x0FFF: svars, oam, palette, hiram, wave
+ * 0x1000 - 0x2FFF: RAM
+ * 0x3000 - 0x4FFF: VRAM
+ * 0x5000 - 0x...:  SRAM
+ *
+ * GBC:
+ * 0x0000 - 0x0FFF: svars, oam, palette, hiram, wave
+ * 0x1000 - 0x8FFF: RAM
+ * 0x9000 - 0xCFFF: VRAM
+ * 0xD000 - 0x...:  SRAM
+ *
+ */
+
+int state_save(const char *file)
 {
-	int i;
-	byte buf[4096];
+	byte *buf = calloc(1, 4096);
+	if (!buf) return -2;
+
+	FILE *fp = fopen(file, "wb");
+	if (!fp) goto _error;
+
+	sblock_t blocks[] = {
+		{buf, 1},
+		{hw.rambanks, hw.cgb ? 8 : 2},
+		{lcd.vbank, hw.cgb ? 4 : 2},
+		{cart.rambanks, cart.ramsize * 2},
+		{NULL, 0},
+	};
+
 	un32 (*header)[2] = (un32 (*)[2])buf;
-	un32 d = 0;
-	int irl = hw.cgb ? 8 : 2;
-	int vrl = hw.cgb ? 4 : 2;
-	int srl = mbc.ramsize << 1;
 
-	ver = 0x105;
-	iramblock = 1;
-	vramblock = 1+irl;
-	sramblock = 1+irl+vrl;
-	wavofs = 4096 - 784;
-	hiofs = 4096 - 768;
-	palofs = 4096 - 512;
-	oamofs = 4096 - 256;
-	memset(buf, 0, sizeof buf);
+	ver = SAVE_VERSION;
 
-	for (i = 0; svars[i].len > 0; i++)
+	for (int i = 0; svars[i].ptr; i++)
 	{
-		memcpy(&header[i][0], svars[i].key, 4);
+		un32 d = 0;
+
 		switch (svars[i].len)
 		{
 		case 1:
@@ -243,43 +279,116 @@ void savestate(FILE *f)
 			d = *(un32 *)svars[i].ptr;
 			break;
 		}
+
+		header[i][0] = *(un32 *)svars[i].key;
 		header[i][1] = LIL(d);
 	}
-	header[i][0] = header[i][1] = 0;
 
-	MEMCPY(buf+hiofs, ram.hi, sizeof(ram.hi));
-	MEMCPY(buf+palofs, lcd.pal, sizeof(lcd.pal));
-	MEMCPY(buf+oamofs, lcd.oam.mem, sizeof(lcd.oam));
-	MEMCPY(buf+wavofs, snd.wave, sizeof(snd.wave));
+	memcpy(buf+hiofs, hw.ioregs, sizeof hw.ioregs);
+	memcpy(buf+palofs, lcd.pal, sizeof lcd.pal);
+	memcpy(buf+oamofs, lcd.oam.mem, sizeof lcd.oam);
+	memcpy(buf+wavofs, snd.wave, sizeof snd.wave);
 
-	fseek(f, 0, SEEK_SET);
-	fwrite(buf, 4096, 1, f);
+	for (int i = 0; blocks[i].ptr != NULL; i++)
+	{
+		if (fwrite(blocks[i].ptr, 4096, blocks[i].len, fp) < 1)
+		{
+			MESSAGE_ERROR("Write error in block %d\n", i);
+			goto _error;
+		}
+	}
 
-	fseek(f, iramblock<<12, SEEK_SET);
-	fwrite(ram.ibank, 4096, irl, f);
+	fclose(fp);
+	free(buf);
 
-	fseek(f, vramblock<<12, SEEK_SET);
-	fwrite(lcd.vbank, 4096, vrl, f);
+	return 0;
 
-	fseek(f, sramblock<<12, SEEK_SET);
-	fwrite(ram.sbank, 4096, srl, f);
+_error:
+	if (fp) fclose(fp);
+	if (buf) free(buf);
+
+	return -1;
 }
 
 
+int state_load(const char *file)
+{
+	byte* buf = calloc(1, 4096);
+	if (!buf) return -2;
 
+	FILE *fp = fopen(file, "rb");
+	if (!fp) goto _error;
 
+	sblock_t blocks[] = {
+		{buf, 1},
+		{hw.rambanks, hw.cgb ? 8 : 2},
+		{lcd.vbank, hw.cgb ? 4 : 2},
+		{cart.rambanks, cart.ramsize * 2},
+		{NULL, 0},
+	};
 
+	for (int i = 0; blocks[i].ptr != NULL; i++)
+	{
+		if (fread(blocks[i].ptr, 4096, blocks[i].len, fp) < 1)
+		{
+			MESSAGE_ERROR("Read error in block %d\n", i);
+			goto _error;
+		}
+	}
 
+	un32 (*header)[2] = (un32 (*)[2])buf;
 
+	for (int i = 0; svars[i].ptr; i++)
+	{
+		un32 d = 0;
 
+		for (int j = 0; header[j][0]; j++)
+		{
+			if (header[j][0] == *(un32 *)svars[i].key)
+			{
+				d = LIL(header[j][1]);
+				break;
+			}
+		}
 
+		switch (svars[i].len)
+		{
+		case 1:
+			*(byte *)svars[i].ptr = d;
+			break;
+		case 2:
+			*(un16 *)svars[i].ptr = d;
+			break;
+		case 4:
+			*(un32 *)svars[i].ptr = d;
+			break;
+		}
+	}
 
+	if (ver != SAVE_VERSION)
+		MESSAGE_ERROR("Save file version mismatch!\n");
 
+	memcpy(hw.ioregs, buf+hiofs, sizeof hw.ioregs);
+	memcpy(lcd.pal, buf+palofs, sizeof lcd.pal);
+	memcpy(lcd.oam.mem, buf+oamofs, sizeof lcd.oam);
+	memcpy(snd.wave, buf+wavofs, sizeof snd.wave);
 
+	fclose(fp);
+	free(buf);
 
+	// Disable BIOS. This is a hack to support old saves
+	R_BIOS = 0x1;
 
+	lcd_rebuildpal();
+	sound_dirty();
+	hw_updatemap();
 
+	return 0;
 
+_error:
+	if (fp) fclose(fp);
+	if (buf) free(buf);
 
-
+	return -1;
+}
 

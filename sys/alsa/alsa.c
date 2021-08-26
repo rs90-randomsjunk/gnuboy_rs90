@@ -3,15 +3,12 @@
 #include <alsa/asoundlib.h>
 char *strdup();
 
-#include "defs.h"
-#include "pcm.h"
-
-struct pcm pcm;
+#include "sound.h"
 
 static int dsp;
 static char *dsp_device;
 static int stereo = 1;
-static int samplerate = 44100;
+static int samplerate = 22050;
 static int sound = 1;
 
 static snd_pcm_t *handle;
@@ -27,7 +24,7 @@ void setvolume(int involume)
 
 int readvolume()
 {
-	return 0;
+	return 1;
 }
 
 void pcm_init()
@@ -37,7 +34,6 @@ void pcm_init()
 	int32_t dir = -1;
 	snd_pcm_uframes_t frames;
 	
-	/* Open PCM device for playback. */
 	int32_t rc = snd_pcm_open(&handle, "default", SND_PCM_STREAM_PLAYBACK, 0);
 
 	if (rc < 0)
@@ -58,10 +54,8 @@ void pcm_init()
 		return;
 	}
 
-	/* Allocate a hardware parameters object. */
 	snd_pcm_hw_params_alloca(&params);
 
-	/* Fill it in with default values. */
 	rc = snd_pcm_hw_params_any(handle, params);
 	if (rc < 0)
 	{
@@ -69,9 +63,6 @@ void pcm_init()
 		return;
 	}
 
-	/* Set the desired hardware parameters. */
-
-	/* Interleaved mode */
 	rc = snd_pcm_hw_params_set_access(handle, params, SND_PCM_ACCESS_RW_INTERLEAVED);
 	if (rc < 0)
 	{
@@ -79,7 +70,6 @@ void pcm_init()
 		return;
 	}
 
-	/* Signed 16-bit little-endian format */
 	rc = snd_pcm_hw_params_set_format(handle, params, SND_PCM_FORMAT_S16_LE);
 	if (rc < 0)
 	{
@@ -102,8 +92,7 @@ void pcm_init()
 		return;
 	}
 
-	/* Set period size to settings.aica.BufferSize frames. */
-	frames = 512;//1024;
+	frames = 1024;//1024;
 	rc = snd_pcm_hw_params_set_period_size_near(handle, params, &frames, &dir);
 	if (rc < 0)
 	{
@@ -118,7 +107,6 @@ void pcm_init()
 		return;
 	}
 
-	/* Write the parameters to the driver */
 	rc = snd_pcm_hw_params(handle, params);
 	if (rc < 0)
 	{
@@ -128,8 +116,8 @@ void pcm_init()
 	
 	pcm.stereo = stereo;
 	pcm.hz = samplerate;
-	pcm.len = 1024;
-	pcm.buf = malloc(pcm.len);
+	pcm.len = 2048;
+	pcm.buf = malloc(pcm.len * 2);
 	
 	return;
 }
@@ -172,7 +160,7 @@ int pcm_submit()
 			*bleh++ = w >> 8;
 		}
 		
-		len = pcm.pos/2;
+		len = pcm.pos/4;
 		ret = snd_pcm_writei(handle, soundbuffer, len);
 		while(ret != len) 
 		{

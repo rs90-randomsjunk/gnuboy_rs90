@@ -2,27 +2,25 @@
 #define __RTC_H__
 
 #include <stdio.h>
-#include "defs.h"
 
-struct rtc
+#include "gnuboy.h"
+
+typedef struct
 {
-	int batt;
-	int sel;
-	int latch;
-	int d, h, m, s, t;
-	int stop, carry;
-	byte regs[8];
-};
+	n32 sel, flags, latch, dirty;
+	n32 ticks; // Ticks (60 = +1s)
+	n32 d, h, m, s; // Current time
+	n32 regs[5]; // Latched time
+} gb_rtc_t;
 
-extern struct rtc rtc;
-
+extern gb_rtc_t rtc;
 
 void rtc_latch(byte b);
 void rtc_write(byte b);
+void rtc_save(FILE *f);
+void rtc_load(FILE *f);
 void rtc_tick();
-
-void rtc_save_internal(FILE *f);
-void rtc_load_internal(FILE *f);
+void rtc_reset(bool hard);
 
 #endif
 

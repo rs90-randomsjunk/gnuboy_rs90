@@ -14,6 +14,9 @@
 
 #define DOTDIR ".gnuboy"
 
+char homedir[128];
+char savesdir[192];
+char statesdir[192];
 #ifndef HAVE_USLEEP
 static void my_usleep(unsigned int us)
 {
@@ -88,32 +91,30 @@ void sys_checkdir(char *path, int wr)
 
 char *sys_gethome()
 {
-	static char homedir[512];
-
-	snprintf(homedir, sizeof(homedir), "%s/.gnuboy", getenv("HOME"));
-	mkdir(homedir, 0777);
-
 	return homedir;
+}
+
+char *sys_getsavedir()
+{
+	return savesdir;
 }
 
 void sys_initpath()
 {
-	/*char *buf, *home = getenv("HOME");
-	if (!home)
+	static char homedir[128];
+	snprintf(homedir, sizeof(homedir), "%s/.gnuboy", getenv("HOME"));
+	snprintf(savesdir, sizeof(savesdir), "%s/.gnuboy/saves", getenv("HOME"));
+	snprintf(statesdir, sizeof(statesdir), "%s/.gnuboy/savestates", getenv("HOME"));
+	if (access( homedir, F_OK ) == -1)
 	{
-		buf = ".";
-		rc_setvar("rcpath", 1, &buf);
-		rc_setvar("savedir", 1, &buf);
-		return;
+		mkdir(homedir, 0755);
 	}
-	buf = malloc(strlen(home) + strlen(DOTDIR) + 8);
-	sprintf(buf, "%s/" DOTDIR ":.", home);
-	rc_setvar("rcpath", 1, &buf);
-	sprintf(buf, "%s/" DOTDIR "/saves" , home);
-	rc_setvar("savedir", 1, &buf);
-	free(buf);*/
-}
-
-void sys_sanitize(char *s)
-{
+	if (access(savesdir, F_OK ) == -1)
+	{
+		mkdir(savesdir, 0755);
+	}
+	if (access(statesdir, F_OK ) == -1)
+	{
+		mkdir(statesdir, 0755);
+	}
 }

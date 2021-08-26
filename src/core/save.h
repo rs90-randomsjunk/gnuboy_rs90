@@ -1,9 +1,7 @@
-#ifndef SAVE_H
-#define SAVE_H
+#pragma once
 
-#include <stdio.h>
-
-void savestate(FILE *f);
-void loadstate(FILE *f);
-
-#endif
+int sram_load(const char *file);
+int sram_save(const char *file);
+int sram_update(const char *file);
+int state_load(const char *file);
+int state_save(const char *file);

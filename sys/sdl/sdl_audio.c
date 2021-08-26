@@ -1,13 +1,12 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <SDL/SDL.h>
-#include "pcm.h"
-
-struct pcm pcm;
+#include "sound.h"
 
 static int sound = 1;
-static int samplerate = 22050;
-static int stereo = 1;
+#define AUDIO_HZ 22050
+#define AUDIO_BUFFER_LENGTH (AUDIO_HZ / 16 + 1)
+static n16* audioBuffer;
 static volatile int audio_done;
 
 SDL_mutex *sound_mutex;
@@ -49,6 +48,11 @@ void pcm_init()
 {
 	int i;
 	SDL_AudioSpec as;
+	
+	if (!audioBuffer)
+	{
+		audioBuffer = malloc(AUDIO_BUFFER_LENGTH * 2);
+	}
 
 	if (!sound) return;
 
@@ -58,19 +62,19 @@ void pcm_init()
 		exit(1);
 	}
 
-	as.freq = samplerate;
+	as.freq = AUDIO_HZ;
 	as.format = AUDIO_S16SYS;
-	as.channels = 1 + stereo;
+	as.channels = 2;
 	as.samples = 256;
 	as.callback = audio_callback;
 	as.userdata = 0;
 	if (SDL_OpenAudio(&as, 0) == -1)
 		return;
 
-	pcm.hz = as.freq;
-	pcm.stereo = as.channels - 1;
-	pcm.len = as.size >> 1;
-	pcm.buf = malloc(pcm.len);
+	pcm.hz = AUDIO_HZ;
+	pcm.stereo = 1;
+	pcm.len = AUDIO_BUFFER_LENGTH;
+	pcm.buf = audioBuffer;
 	pcm.pos = 0;
 	memset(pcm.buf, 0, pcm.len);
 
@@ -97,4 +101,9 @@ void pcm_close()
 {
 	if (sound)
 		SDL_CloseAudio();
+	
+	if (audioBuffer)
+	{
+		free(audioBuffer);
+	}
 }

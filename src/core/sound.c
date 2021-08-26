@@ -1,13 +1,9 @@
 #include <string.h>
-
-#include "defs.h"
-#include "pcm.h"
+#include "gnuboy.h"
 #include "sound.h"
 #include "cpu.h"
 #include "hw.h"
-#include "regs.h"
 #include "noise.h"
-#include "sys.h"
 
 #define MEMCPY memcpy
 
@@ -47,45 +43,21 @@ static const int freqtab[8] =
 	(1<<14)/7
 };
 
-struct snd snd;
+
+gb_pcm_t pcm;
+gb_snd_t snd;
 
 #define RATE (snd.rate)
-#define WAVE (snd.wave) /* ram.hi+0x30 */
+#define WAVE (snd.wave) /* hw.ioregs+0x30 */
 #define S1 (snd.ch[0])
 #define S2 (snd.ch[1])
 #define S3 (snd.ch[2])
 #define S4 (snd.ch[3])
 
-inline static void s1_freq_d(int d)
-{
-	if (RATE > (d<<4)) S1.freq = 0;
-	else S1.freq = (RATE << 17)/d;
-}
-
-inline static void s1_freq()
-{
-	s1_freq_d(2048 - (((R_NR14&7)<<8) + R_NR13));
-}
-
-inline static void s2_freq()
-{
-	int d = 2048 - (((R_NR24&7)<<8) + R_NR23);
-	if (RATE > (d<<4)) S2.freq = 0;
-	else S2.freq = (RATE << 17)/d;
-}
-
-inline static void s3_freq()
-{
-	int d = 2048 - (((R_NR34&7)<<8) + R_NR33);
-	if (RATE > (d<<3)) S3.freq = 0;
-	else S3.freq = (RATE << 21)/d;
-}
-
-inline static void s4_freq()
-{
-	S4.freq = (freqtab[R_NR43&7] >> (R_NR43 >> 4)) * RATE;
-	if (S4.freq >> 18) S4.freq = 1<<18;
-}
+#define s1_freq() {int d = 2048 - (((R_NR14&7)<<8) + R_NR13); S1.freq = (RATE > (d<<4)) ? 0 : (RATE << 17)/d;}
+#define s2_freq() {int d = 2048 - (((R_NR24&7)<<8) + R_NR23); S2.freq = (RATE > (d<<4)) ? 0 : (RATE << 17)/d;}
+#define s3_freq() {int d = 2048 - (((R_NR34&7)<<8) + R_NR33); S3.freq = (RATE > (d<<3)) ? 0 : (RATE << 21)/d;}
+#define s4_freq() {S4.freq = (freqtab[R_NR43&7] >> (R_NR43 >> 4)) * RATE; if (S4.freq >> 18) S4.freq = 1<<18;}
 
 void sound_dirty()
 {
@@ -139,18 +111,15 @@ void sound_off()
 	sound_dirty();
 }
 
-void sound_reset()
+void sound_reset(bool hard)
 {
 	memset(&snd, 0, sizeof snd);
-#ifdef ORIGINAL_SOUND_CODE
-	if (pcm.hz) snd.rate = (1<<21) / pcm.hz;
-	else snd.rate = 0;
-#else
-	snd.rate = pcm.hz ? (int)(((1<<21) / (float)pcm.hz) + 0.5f) : 0;
-#endif	
-	MEMCPY(WAVE, hw.cgb ? cgbwave : dmgwave, 16);
-	MEMCPY(ram.hi+0x30, WAVE, 16);
+	memcpy(WAVE, hw.cgb ? cgbwave : dmgwave, 16);
+	memcpy(hw.ioregs + 0x30, WAVE, 16);
+	snd.rate = pcm.hz ? (int)(((1<<21) / (double)pcm.hz) + 0.5) : 0;
+	pcm.pos = 0;
 	sound_off();
+	R_NR52 = 0xF1;
 }
 
 
@@ -158,18 +127,21 @@ void sound_mix()
 {
 	int s, l, r, f, n;
 
-	if (!RATE || cpu.snd < RATE) return;
+	if (!RATE || snd.cycles < RATE)
+		return;
 
-	for (; cpu.snd >= RATE; cpu.snd -= RATE)
+	for (; snd.cycles >= RATE; snd.cycles -= RATE)
 	{
 		l = r = 0;
 
 		if (S1.on)
 		{
-			s = sqwave[R_NR11>>6][(S1.pos>>18)&7] & S1.envol;
+			int s = sqwave[R_NR11>>6][(S1.pos>>18)&7] & S1.envol;
 			S1.pos += S1.freq;
+
 			if ((R_NR14 & 64) && ((S1.cnt += RATE) >= S1.len))
 				S1.on = 0;
+
 			if (S1.enlen && (S1.encnt += RATE) >= S1.enlen)
 			{
 				S1.encnt -= S1.enlen;
@@ -177,13 +149,17 @@ void sound_mix()
 				if (S1.envol < 0) S1.envol = 0;
 				if (S1.envol > 15) S1.envol = 15;
 			}
+
 			if (S1.swlen && (S1.swcnt += RATE) >= S1.swlen)
 			{
 				S1.swcnt -= S1.swlen;
-				f = S1.swfreq;
-				n = (R_NR10 & 7);
-				if (R_NR10 & 8) f -= (f >> n);
-				else f += (f >> n);
+				int f = S1.swfreq;
+
+				if (R_NR10 & 8)
+					f -= (f >> (R_NR10 & 7));
+				else
+					f += (f >> (R_NR10 & 7));
+
 				if (f > 2047)
 					S1.on = 0;
 				else
@@ -191,7 +167,7 @@ void sound_mix()
 					S1.swfreq = f;
 					R_NR13 = f;
 					R_NR14 = (R_NR14 & 0xF8) | (f>>8);
-					s1_freq_d(2048 - f);
+					s1_freq();
 				}
 			}
 			s <<= 2;
@@ -288,7 +264,7 @@ byte sound_read(byte r)
 	return REG(r);
 }
 
-void s1_init()
+static inline void s1_init()
 {
 	S1.swcnt = 0;
 	S1.swfreq = ((R_NR14&7)<<8) + R_NR13;
@@ -302,7 +278,7 @@ void s1_init()
 	S1.encnt = 0;
 }
 
-void s2_init()
+static inline void s2_init()
 {
 	S2.envol = R_NR22 >> 4;
 	S2.endir = (R_NR22>>3) & 1;
@@ -314,17 +290,17 @@ void s2_init()
 	S2.encnt = 0;
 }
 
-void s3_init()
+static inline void s3_init()
 {
-	int i;
 	if (!S3.on) S3.pos = 0;
 	S3.cnt = 0;
 	S3.on = R_NR30 >> 7;
-	if (S3.on) for (i = 0; i < 16; i++)
-		ram.hi[i+0x30] = 0x13 ^ ram.hi[i+0x31];
+	if (!S3.on) return;
+	for (int i = 0; i < 16; i++)
+		hw.ioregs[i+0x30] = 0x13 ^ hw.ioregs[i+0x31];
 }
 
-void s4_init()
+static inline void s4_init()
 {
 	S4.envol = R_NR42 >> 4;
 	S4.endir = (R_NR42>>3) & 1;
@@ -350,7 +326,7 @@ void sound_write(byte r, byte b)
 	{
 		if (S3.on) sound_mix();
 		if (!S3.on)
-			WAVE[r-0x30] = ram.hi[r] = b;
+			WAVE[r-0x30] = hw.ioregs[r] = b;
 		return;
 	}
 	sound_mix();

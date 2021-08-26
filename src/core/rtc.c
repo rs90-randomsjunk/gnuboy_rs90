@@ -1,21 +1,22 @@
+#include <string.h>
 #include <stdio.h>
 
-#include "defs.h"
-#include "mem.h"
+#include "gnuboy.h"
 #include "rtc.h"
-//#include "rc.h"
 
-struct rtc rtc;
+gb_rtc_t rtc;
 
-static int syncrtc = 1;
+// Set in the far future for VBA-M support
+#define RT_BASE 1893456000
 
-/*
-rcvar_t rtc_exports[] =
+
+void rtc_reset(bool hard)
 {
-	RCV_BOOL("syncrtc", &syncrtc),
-	RCV_END
-};
-*/
+	if (hard)
+	{
+		memset(&rtc, 0, sizeof(rtc));
+	}
+}
 
 void rtc_latch(byte b)
 {
@@ -25,60 +26,59 @@ void rtc_latch(byte b)
 		rtc.regs[1] = rtc.m;
 		rtc.regs[2] = rtc.h;
 		rtc.regs[3] = rtc.d;
-		rtc.regs[4] = (rtc.d>>9) | (rtc.stop<<6) | (rtc.carry<<7);
-		rtc.regs[5] = 0xff;
-		rtc.regs[6] = 0xff;
-		rtc.regs[7] = 0xff;
+		rtc.regs[4] = rtc.flags;
 	}
-	rtc.latch = b;
+	rtc.latch = b & 1;
 }
 
 void rtc_write(byte b)
 {
-	/* printf("write %02X: %02X (%d)\n", rtc.sel, b, b); */
-	if (!(rtc.sel & 8)) return;
-	switch (rtc.sel & 7)
+	MESSAGE_DEBUG("write %02X: %d\n", rtc.sel, b);
+
+	switch (rtc.sel & 0xf)
 	{
-	case 0:
-		rtc.s = rtc.regs[0] = b;
-		while (rtc.s >= 60) rtc.s -= 60;
+	case 0x8: // Seconds
+		rtc.regs[0] = b;
+		rtc.s = b % 60;
 		break;
-	case 1:
-		rtc.m = rtc.regs[1] = b;
-		while (rtc.m >= 60) rtc.m -= 60;
+	case 0x9: // Minutes
+		rtc.regs[1] = b;
+		rtc.m = b % 60;
 		break;
-	case 2:
-		rtc.h = rtc.regs[2] = b;
-		while (rtc.h >= 24) rtc.h -= 24;
+	case 0xA: // Hours
+		rtc.regs[2] = b;
+		rtc.h = b % 24;
 		break;
-	case 3:
+	case 0xB: // Days (lower 8 bits)
 		rtc.regs[3] = b;
-		rtc.d = (rtc.d & 0x100) | b;
+		rtc.d = ((rtc.d & 0x100) | b) % 365;
 		break;
-	case 4:
+	case 0xC: // Flags (days upper 1 bit, carry, stop)
 		rtc.regs[4] = b;
-		rtc.d = (rtc.d & 0xff) | ((b&1)<<9);
-		rtc.stop = (b>>6)&1;
-		rtc.carry = (b>>7)&1;
+		rtc.flags = b;
+		rtc.d = ((rtc.d & 0xff) | ((b&1)<<9)) % 365;
 		break;
 	}
+	rtc.dirty = 1;
 }
 
 void rtc_tick()
 {
-	if (rtc.stop) return;
-	if (++rtc.t == 60)
+	if ((rtc.flags & 0x40))
+		return; // rtc stop
+
+	if (++rtc.ticks >= 60)
 	{
-		if (++rtc.s == 60)
+		if (++rtc.s >= 60)
 		{
-			if (++rtc.m == 60)
+			if (++rtc.m >= 60)
 			{
-				if (++rtc.h == 24)
+				if (++rtc.h >= 24)
 				{
-					if (++rtc.d == 365)
+					if (++rtc.d >= 365)
 					{
 						rtc.d = 0;
-						rtc.carry = 1;
+						rtc.flags |= 0x80;
 					}
 					rtc.h = 0;
 				}
@@ -86,31 +86,43 @@ void rtc_tick()
 			}
 			rtc.s = 0;
 		}
-		rtc.t = 0;
+		rtc.ticks = 0;
 	}
 }
 
-void rtc_save_internal(FILE *f)
+void rtc_save(FILE *f)
 {
-	fprintf(f, "%d %d %d %02d %02d %02d %02d\n%ld\n",
-		rtc.carry, rtc.stop, rtc.d, rtc.h, rtc.m, rtc.s, rtc.t,
-		(long) time(0));
+	int64_t rt = RT_BASE + (rtc.s + (rtc.m * 60) + (rtc.h * 3600) + (rtc.d * 86400));
+
+	fwrite(&rtc.s, 4, 1, f);
+	fwrite(&rtc.m, 4, 1, f);
+	fwrite(&rtc.h, 4, 1, f);
+	fwrite(&rtc.d, 4, 1, f);
+	fwrite(&rtc.flags, 4, 1, f);
+	for (int i = 0; i < 5; i++) {
+		fwrite(&rtc.regs[i], 4, 1, f);
+	}
+	fwrite(&rt, 8, 1, f);
 }
 
-void rtc_load_internal(FILE *f)
+void rtc_load(FILE *f)
 {
-	int rt = 0;
-	fscanf(
-		f, "%d %d %d %02d %02d %02d %02d\n%d\n",
-		&rtc.carry, &rtc.stop, &rtc.d,
-		&rtc.h, &rtc.m, &rtc.s, &rtc.t, &rt);
-	while (rtc.t >= 60) rtc.t -= 60;
-	while (rtc.s >= 60) rtc.s -= 60;
-	while (rtc.m >= 60) rtc.m -= 60;
-	while (rtc.h >= 24) rtc.h -= 24;
-	while (rtc.d >= 365) rtc.d -= 365;
-	rtc.stop &= 1;
-	rtc.carry &= 1;
-	if (rt) rt = (time(0) - rt) * 60;
-	if (syncrtc) while (rt-- > 0) rtc_tick();
+	int64_t rt = 0;
+
+	// Try to read old format first
+	int tmp = fscanf(f, "%d %*d %d %02d %02d %02d %02d\n%*d\n",
+		&rtc.flags, &rtc.d, &rtc.h, &rtc.m, &rtc.s, &rtc.ticks);
+
+	if (tmp >= 5)
+		return;
+
+	fread(&rtc.s, 4, 1, f);
+	fread(&rtc.m, 4, 1, f);
+	fread(&rtc.h, 4, 1, f);
+	fread(&rtc.d, 4, 1, f);
+	fread(&rtc.flags, 4, 1, f);
+	for (int i = 0; i < 5; i++) {
+		fread(&rtc.regs[i], 4, 1, f);
+	}
+	fread(&rt, 8, 1, f);
 }

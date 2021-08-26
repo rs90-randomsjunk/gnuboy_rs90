@@ -1,73 +1,87 @@
-#ifndef __LCD_H__
-#define __LCD_H__
+#pragma once
 
-#include "defs.h"
+#include "gnuboy.h"
 
-extern int enable_window_offset_hack;
+#define GB_WIDTH (160)
+#define GB_HEIGHT (144)
 
-struct vissprite
-{
-	byte *buf;
-	int x;
-	byte pal, pri, pad[6];
-};
-
-struct scan
-{
-	int bg[64];
-	int wnd[64];
-	byte buf[256];
-	byte pal1[128];
-	un16 pal2[64];
-	un32 pal4[64];
-	byte pri[256];
-	struct vissprite vs[16];
-	int ns, l, x, y, s, t, u, v, wx, wy, wt, wv;
-};
-
-struct obj
+typedef struct
 {
 	byte y;
 	byte x;
 	byte pat;
 	byte flags;
-};
+} gb_obj_t;
 
-struct lcd
+typedef struct
+{
+	int pat, x, v, pal, pri;
+} gb_vs_t;
+
+typedef struct
 {
 	byte vbank[2][8192];
-	union
-	{
+	union {
 		byte mem[256];
-		struct obj obj[40];
+		gb_obj_t obj[40];
 	} oam;
 	byte pal[128];
+
+	int BG[64];
+	int WND[64];
+	byte BUF[0x100];
+	byte PRI[0x100];
+	gb_vs_t VS[16];
+
+	int S, T, U, V;
+	int WX, WY, WT, WV;
+
+	int cycles;
+
+	// Fix for Fushigi no Dungeon - Fuurai no Shiren GB2 and Donkey Kong
+	int enable_window_offset_hack;
+
+	struct {
+		byte *buffer;
+		un16 cgb_pal[64];
+		un16 dmg_pal[4][4];
+		int colorize;
+		int format;
+		int enabled;
+		void (*blit_func)();
+	} out;
+} gb_lcd_t;
+
+enum
+{
+	GB_PIXEL_PALETTED,
+	GB_PIXEL_565_LE,
+	GB_PIXEL_565_BE,
 };
 
-extern struct lcd lcd;
-extern struct scan scan;
-
-void updatepatpix();
-void tilebuf();
-void bg_scan();
-void wnd_scan();
-void bg_scan_pri();
-void wnd_scan_pri();
-void bg_scan_color();
-void wnd_scan_color();
-void spr_count();
-void spr_enum();
-void spr_scan();
-void lcd_begin();
-void lcd_refreshline();
-void pal_write(int i, byte b);
-void pal_write_dmg(int i, int mapnum, byte d);
-void vram_write(int a, byte b);
-void vram_dirty();
-void pal_dirty();
-void lcd_reset();
-
-#endif
+enum
+{
+	GB_PALETTE_GBCBIOS,
+	GB_PALETTE_DEFAULT,
+	GB_PALETTE_2BGRAYS,
+	GB_PALETTE_LINKSAW,
+	GB_PALETTE_NSUPRGB,
+	GB_PALETTE_NGBARNE,
+	GB_PALETTE_GRAPEFR,
+	GB_PALETTE_MEGAMAN,
+	GB_PALETTE_POKEMON,
+	GB_PALETTE_DMGREEN,
+	GB_PALETTE_COUNT,
+};
 
 
+extern gb_lcd_t lcd;
 
+void lcd_reset(bool hard);
+void lcd_emulate(void);
+void lcd_rebuildpal(void);
+void lcd_stat_trigger(void);
+void lcd_lcdc_change(byte b);
+
+void pal_write_cgb(byte i, byte b);
+void pal_write_dmg(byte i, byte mapnum, byte d);
